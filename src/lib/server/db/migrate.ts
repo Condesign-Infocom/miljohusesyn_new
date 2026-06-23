@@ -8,13 +8,31 @@ import { requireRuntimePostgresDsn, resolveRuntimeDbConfig } from './runtime-db-
 import { resetRuntimePostgresSequences } from './runtime-postgres-sequences';
 
 const defaultDbPath = 'data/checklist.sqlite';
-const runtimeSchemaPath = path.resolve(process.cwd(), '..', 'schema', 'schema.sql');
-const runtimePostgresSchemaPath = path.resolve(process.cwd(), '..', 'schema', 'app-runtime.postgres.sql');
 type SqliteDatabase = InstanceType<typeof Database>;
 const appRoleSqlList = appRoles.map((role) => `'${role}'`).join(', ');
 
 export function loadRuntimeSchemaSql(engine: 'sqlite' | 'postgres' = 'sqlite') {
-	return fs.readFileSync(engine === 'postgres' ? runtimePostgresSchemaPath : runtimeSchemaPath, 'utf8');
+	return fs.readFileSync(resolveRuntimeSchemaPath(engine), 'utf8');
+}
+
+function resolveRuntimeSchemaPath(engine: 'sqlite' | 'postgres') {
+	const filename = engine === 'postgres' ? 'app-runtime.postgres.sql' : 'schema.sql';
+
+	for (const schemaRoot of candidateSchemaRoots()) {
+		const candidatePath = path.join(schemaRoot, filename);
+		if (fs.existsSync(candidatePath)) {
+			return candidatePath;
+		}
+	}
+
+	return path.join(candidateSchemaRoots()[0], filename);
+}
+
+function candidateSchemaRoots() {
+	return [
+		path.resolve(process.cwd(), 'schema'),
+		path.resolve(process.cwd(), '..', 'schema')
+	];
 }
 
 export function migrateDb(sqlite: SqliteDatabase) {

@@ -2,7 +2,7 @@ import path from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const defaultSqlitePath = path.resolve(process.cwd(), '../schema/domain-store.sqlite');
+const defaultSqlitePath = resolveDefaultSqlitePath();
 
 export type DomainStoreConfig = {
 	engine: 'sqlite' | 'postgres';
@@ -83,6 +83,21 @@ function candidateEnvPaths() {
 		path.join(appRoot, '.env.local'),
 		path.join(appRoot, '.env')
 	].filter((value): value is string => Boolean(value));
+}
+
+function resolveDefaultSqlitePath() {
+	const candidates = [
+		path.resolve(process.cwd(), 'schema', 'domain-store.sqlite'),
+		path.resolve(process.cwd(), '..', 'schema', 'domain-store.sqlite')
+	];
+
+	for (const candidate of candidates) {
+		if (existsSync(candidate)) {
+			return candidate;
+		}
+	}
+
+	return candidates[0];
 }
 
 function parseEnvFile(contents: string) {
