@@ -1,0 +1,17 @@
+/* Design tokens for the Miljöhusesyn template.
+   These mirror the compiled Tailwind palette (assets/css/site.css) so colors
+   can be referenced by name. site.css remains the rendering engine; editing a
+   value here documents intent — to actually restyle, change site.css too. */
+:root {
+  --cream:   #faf6ec;   /* page background */
+  --cream-2: #f3ecda;   /* alt section background */
+  --bark:    #1e2a22;   /* headings / dark footer */
+  --ink:     #243027;   /* body text */
+  --line:    #e3dcc6;   /* hairline borders */
+  --leaf:    #2f5d3a;   /* primary accent */
+  --leaf-2:  #244a2e;   /* darker accent / gradient */
+  --sage:    #88a878;   /* muted green */
+  --sage-2:  #c8d6b6;   /* light green */
+  --mute:    #5b6a5f;   /* muted text */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+}

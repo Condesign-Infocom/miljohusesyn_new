@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/fraunces';
+
+@theme {
+	--color-cream: #faf6ec;
+	--color-cream-2: #f3ecda;
+	--color-bark: #1e2a22;
+	--color-ink: #243027;
+	--color-line: #e3dcc6;
+	--color-leaf: #2f5d3a;
+	--color-leaf-2: #244a2e;
+	--color-sage: #88a878;
+	--color-sage-2: #c8d6b6;
+	--color-mute: #5b6a5f;
+	--font-display: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
+}
+
+:root {
+	color-scheme: light;
+}
+
+html {
+	overflow-x: hidden;
+}
+
+body {
+	background:
+		radial-gradient(circle at top, rgba(200, 214, 182, 0.22), transparent 35%),
+		linear-gradient(180deg, #fdfbf5 0%, #faf6ec 100%);
+	overflow-x: hidden;
+}
+
+.text-cream {
+	color: var(--color-cream);
+}
+
+.grain {
+	background-image:
+		radial-gradient(#1e2a220f 1px, #0000 1px),
+		radial-gradient(#1e2a220a 1px, #0000 1px);
+	background-position: 0 0, 1px 2px;
+	background-size: 3px 3px, 7px 7px;
+}

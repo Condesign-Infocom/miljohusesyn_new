@@ -1,0 +1,52 @@
+{
+  "name": "miljohusesyn-static-template",
+  "version": "1.0.0",
+  "description": "Zero-build static template (Swedish agri-regulations demo). Edit src/, run `python build.py`, serve dist/.",
+  "build": { "command": "python build.py", "output": "dist", "serve": "python -m http.server 8000 --directory dist" },
+  "tokens": {
+    "colors": {
+      "cream": "#faf6ec", "cream-2": "#f3ecda", "bark": "#1e2a22",
+      "ink": "#243027", "line": "#e3dcc6", "leaf": "#2f5d3a",
+      "leaf-2": "#244a2e", "sage": "#88a878", "sage-2": "#c8d6b6", "mute": "#5b6a5f"
+    },
+    "fontDisplay": "\"Fraunces\", Georgia, serif",
+    "rhythm": { "container": "max-w-7xl", "sectionPadding": "py-24", "gutter": "px-6" }
+  },
+  "navigation": [
+    { "label": "Hem", "href": "#hem" },
+    { "label": "Viktigt för alla", "href": "#viktigt" },
+    { "label": "Regeländringar", "href": "#nyheter" },
+    { "label": "Faktabank", "href": "#faktabank" },
+    { "label": "Beräkningar", "href": "#berakningar" },
+    { "label": "Kontakt", "href": "#kontakt" }
+  ],
+  "partials": [
+    { "file": "src/partials/head-meta.html", "description": "<head> meta + CSS/JS links (page owns <title>)" },
+    { "file": "src/partials/header.html", "description": "Sticky top nav + mobile menu — THE canonical navigation. Edit nav links here only." },
+    { "file": "src/partials/footer.html", "description": "Dark footer." }
+  ],
+  "sections": [
+    { "id": "hero",         "file": "src/sections/hero.html",         "anchor": "hem",        "description": "Full-bleed hero: display heading, subcopy, CTAs, background image." },
+    { "id": "partners-band","file": "src/sections/partners-band.html","anchor": null,         "description": "Thin band beneath hero (collaborators / 'Ett verktyg från LRF')." },
+    { "id": "feature-grid", "file": "src/sections/feature-grid.html", "anchor": "viktigt",    "description": "'Vad omfattar' — grid of topic cards." },
+    { "id": "faktabank",    "file": "src/sections/faktabank.html",    "anchor": "faktabank",  "description": "Fact-bank: heading + grid of regulation cards." },
+    { "id": "calculations", "file": "src/sections/calculations.html", "anchor": "berakningar","description": "Calculation tools: three-up cards." },
+    { "id": "news",         "file": "src/sections/news.html",         "anchor": "nyheter",    "description": "Regulation changes / news list." },
+    { "id": "contact",      "file": "src/sections/contact.html",      "anchor": "kontakt",    "description": "Contact section." }
+  ],
+  "pages": [
+    { "name": "index", "file": "src/pages/index.html",
+      "includes": ["partials/head-meta.html","partials/header.html","sections/hero.html","sections/partners-band.html","sections/feature-grid.html","sections/faktabank.html","sections/calculations.html","sections/news.html","sections/contact.html","partials/footer.html"] }
+  ],
+  "images": [
+    { "file": "assets/images/field-wheat.jpg", "caption": "Close-up of green, unripe wheat ears in a field with a sliver of blue sky behind", "suggestedUse": "hero background" },
+    { "file": "assets/images/banner-01.jpg",   "caption": "Red Massey Ferguson tractor pulling a Väderstad seed drill across a tilled field, edged by a treeline", "suggestedUse": "section banner" },
+    { "file": "assets/images/banner-02.jpg",   "caption": "Green crop field rising to the horizon under a bright blue sky with billowing white clouds", "suggestedUse": "section banner" },
+    { "file": "assets/images/banner-03.jpg",   "caption": "Macro of a single young seedling with a fuzzy green cotyledon leaf sprouting from cracked dry soil", "suggestedUse": "section banner" },
+    { "file": "assets/images/field-01.jpg",    "caption": "Misty winter farmland at dawn, with fog hanging over the field and a faint treeline and barn in the distance", "suggestedUse": "section banner" },
+    { "file": "assets/images/field-02.jpg",    "caption": "Green CLAAS combine harvester cutting a ripe golden grain field, kicking up dust", "suggestedUse": "section banner" },
+    { "file": "assets/images/field-03.jpg",    "caption": "Snow-dusted rolling farmland in late winter with bare trees, a red farm building and clear blue sky", "suggestedUse": "section banner" },
+    { "file": "assets/images/cattle.jpg",      "caption": "Brown horned cow standing on green pasture under a clear blue sky, facing the camera", "suggestedUse": "livestock / animal-welfare sections" },
+    { "file": "assets/images/mhs-logo.png",    "caption": "Miljöhusesyn wordmark logo in green with tagline 'EGEN TILLSYN FÖR LANTBRUK OCH TRÄDGÅRD'", "suggestedUse": "header / footer branding" }
+  ]
+}

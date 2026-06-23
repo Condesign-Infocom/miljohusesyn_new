@@ -1,0 +1,17 @@
+{
+  "records": [
+    {
+      "fact_id": "fact-1",
+      "node_id": "G1-1",
+      "title": "Fact detail",
+      "body_preview": "<p>Fact body</p>",
+      "links": [
+        {
+          "node_id": "G1-1",
+          "link_source": "explicit_node_id",
+          "status": "linked"
+        }
+      ]
+    }
+  ]
+}

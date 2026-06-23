@@ -1,0 +1,29 @@
+{
+  "records": [
+    {
+      "checklist_id": "checklist-default",
+      "qa_type": "default",
+      "title": "Miljohusesyn",
+      "groups": [
+        {
+          "node_id": "node-id-G1-2015-02-25",
+          "title": "Environment",
+          "intro_text": "Intro text",
+          "sort_order": 1,
+          "profiles": ["Har_djur"],
+          "questions": [
+            {
+              "node_id": "node-id-G1-1-2015-02-25",
+              "question_text": "Is the activity registered?",
+              "sort_order": 1,
+              "profiles": ["Har_grisar"],
+              "flags": {
+                "new": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

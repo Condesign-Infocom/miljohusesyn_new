@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: miljohusesyn-app
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm db:migrate:runtime-postgres && pnpm start
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_DB_ENGINE
+        value: postgres
+      - key: APP_DB_POSTGRES_DSN
+        fromDatabase:
+          name: miljohusesyn-postgres
+          property: connectionString
+      - key: MHS_DOMAIN_STORE_ENGINE
+        value: postgres
+      - key: MHS_DOMAIN_STORE_POSTGRES_DSN
+        fromDatabase:
+          name: miljohusesyn-postgres
+          property: connectionString
+      - key: PROTOCOL_HEADER
+        value: x-forwarded-proto
+      - key: HOST_HEADER
+        value: x-forwarded-host
+
+databases:
+  - name: miljohusesyn-postgres
+    databaseName: miljohusesyn
+    user: miljohusesyn
+    plan: free
+    postgresMajorVersion: "15"
+    ipAllowList: []
