@@ -5,7 +5,7 @@ import {
 	getChecklistOverview,
 	getChecklistSectionDetail
 } from '$lib/server/services/checklists';
-import { createSeededDb, createTestDb, seededDb } from './test-db';
+import { createSeededDb, createTestDb } from './test-db';
 import {
 	appChecklistAssignments,
 	appChecklists,
@@ -45,13 +45,15 @@ afterEach(() => {
 
 describe('checklist services', () => {
 	it('returns the demo user checklist list', async () => {
-	const data = await getChecklistList(seededDb, 1);
+		const seededDb = createSeededDb();
+		const data = await getChecklistList(seededDb, 1);
 
-	expect(data.items.length).toBeGreaterThan(0);
-	expect(data.items[0]?.title).toBe('Miljöhusesyn 2026');
+		expect(data.items.length).toBeGreaterThan(0);
+		expect(data.items[0]?.title).toBe('Miljöhusesyn 2026');
 	});
 
 	it('returns section progress for one checklist overview', async () => {
+		const seededDb = createSeededDb();
 		const firstChecklist = (await getChecklistList(seededDb, 1)).items[0];
 		const data = firstChecklist ? await getChecklistOverview(seededDb, firstChecklist.slug, 1) : null;
 
@@ -60,6 +62,7 @@ describe('checklist services', () => {
 	});
 
 	it('does not expose checklist details to an unassigned user', async () => {
+		const seededDb = createSeededDb();
 		const data = await getChecklistOverview(seededDb, 'miljohusesyn-default', 999);
 
 		expect(data).toBeNull();

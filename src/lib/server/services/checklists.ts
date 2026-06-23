@@ -2,7 +2,12 @@ import { type AppDb } from '$lib/server/db/client';
 import { createRuntimeGateway, type RuntimeGateway } from '$lib/server/db/runtime-gateway';
 import { type ChecklistRuntimeData } from '$lib/server/db/runtime-read-repository';
 import { type RuntimeChecklistTree } from '$lib/server/db/runtime-query-repository';
-import type { ChecklistList, ChecklistOverview, ChecklistSectionDetail } from '$lib/types/checklists';
+import type {
+	ChecklistFilterOption,
+	ChecklistList,
+	ChecklistOverview,
+	ChecklistSectionDetail
+} from '$lib/types/checklists';
 import { canViewQuestion, canViewSection } from './visibility';
 
 type ChecklistTree = RuntimeChecklistTree;
@@ -122,6 +127,7 @@ async function getSingleChecklistOverview(
 	return {
 		slug: checklist.slug,
 		title: checklist.title,
+		filters: buildChecklistFilters(checklist.slug),
 		sections: visibleSections.map((section) => ({
 			nodeId: section.nodeId,
 			prefix: section.prefix,
@@ -160,6 +166,7 @@ async function getCompositeChecklistOverview(
 	return {
 		slug: descriptor.slug,
 		title: compositeChecklistTitle(descriptor.mode),
+		filters: buildChecklistFilters(descriptor.slug),
 		sections: visibleSections.map(({ bundle, section }) => ({
 			nodeId: section.nodeId,
 			prefix: section.prefix,
@@ -202,6 +209,15 @@ async function getSingleChecklistSectionDetail(
 	return {
 		checklistSlug: checklist.slug,
 		checklistTitle: checklist.title,
+		filters: buildChecklistFilters(
+			checklist.slug,
+			section.nodeId,
+			normalizeAreaPrefix(section.prefix),
+			tree.sections.map((entry) => entry.nodeId),
+			Object.fromEntries(
+				tree.sections.map((entry) => [normalizeAreaPrefix(entry.prefix), entry.nodeId] as const)
+			)
+		),
 		sections: visibleSections,
 		section: {
 			nodeId: section.nodeId,
@@ -253,6 +269,13 @@ async function getCompositeChecklistSectionDetail(
 	return {
 		checklistSlug: descriptor.slug,
 		checklistTitle: compositeChecklistTitle(descriptor.mode),
+		filters: buildChecklistFilters(
+			descriptor.slug,
+			currentArea.nodeId,
+			currentArea.prefixKey,
+			areaSections.map((area) => area.nodeId),
+			Object.fromEntries(areaSections.map((area) => [area.prefixKey, area.nodeId] as const))
+		),
 		sections: areaSections.map((area) => ({
 			nodeId: area.nodeId,
 			prefix: area.prefixKey,
@@ -310,6 +333,50 @@ function compositeChecklistTitle(mode: CompositeMode) {
 	}
 
 	return 'Grundvillkor';
+}
+
+function compositeChecklistLabel(mode: CompositeMode) {
+	if (mode === 'full') {
+		return 'Miljöhusesyn';
+	}
+
+	if (mode === 'new') {
+		return 'Nya frågor';
+	}
+
+	return 'Grundvillkor';
+}
+
+function buildChecklistFilters(
+	activeSlug: string,
+	currentSectionNodeId?: string,
+	currentAreaPrefix?: string,
+	availableSectionNodeIds: string[] = [],
+	areaNodeIdByPrefix: Record<string, string> = {}
+): ChecklistFilterOption[] {
+	const availableSectionNodeIdSet = new Set(availableSectionNodeIds);
+
+	return COMPOSITE_TARGETS.map((target) => {
+		const sectionHref =
+			currentSectionNodeId && target.slug === activeSlug ?
+				currentSectionNodeId
+			: currentSectionNodeId && availableSectionNodeIdSet.has(currentSectionNodeId) ?
+				currentSectionNodeId
+			: currentAreaPrefix ?
+				buildChecklistAreaSectionId(currentAreaPrefix, areaNodeIdByPrefix)
+			:	null;
+
+		return {
+			slug: target.slug,
+			label: compositeChecklistLabel(target.mode),
+			sectionId: sectionHref,
+			active: target.slug === activeSlug
+		};
+	});
+}
+
+function buildChecklistAreaSectionId(areaPrefix: string, areaNodeIdByPrefix: Record<string, string>) {
+	return areaNodeIdByPrefix[normalizeAreaPrefix(areaPrefix)] ?? null;
 }
 
 function orderedAssignedChecklists(data: ChecklistRuntimeData, assignedChecklistIds: Set<number>) {

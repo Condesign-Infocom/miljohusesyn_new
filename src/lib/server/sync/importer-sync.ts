@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
-import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
+import type Database from 'better-sqlite3';
 import { Client, type PoolClient } from 'pg';
 import { getRuntimeDbEngine, requireRuntimePostgresPool, type AppDb } from '../db/client';
 import { resetRuntimePostgresSequences, runtimePostgresContentSequenceTables } from '../db/runtime-postgres-sequences';
@@ -16,9 +17,18 @@ import {
 	appSections
 } from '../db/schema';
 
+const require = createRequire(import.meta.url);
 type ImportFlagMap = Partial<
 	Record<'cc' | 'cc_extra' | 'base' | 'annual_question' | 'new' | 'recommended', boolean>
 >;
+let sqliteDatabaseConstructor: typeof Database | null = null;
+
+function loadBetterSqlite3() {
+	sqliteDatabaseConstructor ??=
+		(require('better-sqlite3') as { default?: typeof Database }).default ??
+		(require('better-sqlite3') as typeof Database);
+	return sqliteDatabaseConstructor;
+}
 
 type ImportQuestion = {
 	node_id?: unknown;
@@ -121,7 +131,8 @@ export function syncImporterSnapshot(db: AppDb, payload: ImportPayload) {
 }
 
 export function loadImportPayloadFromDomainStore(domainStorePath: string, snapshotKey?: string): ImportPayload {
-	const sqlite = new Database(domainStorePath, { readonly: true });
+	const SqliteDatabase = loadBetterSqlite3();
+	const sqlite = new SqliteDatabase(domainStorePath, { readonly: true });
 
 	try {
 		const resolvedSnapshotKey =

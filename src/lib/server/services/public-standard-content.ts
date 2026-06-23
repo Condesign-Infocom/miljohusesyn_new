@@ -7,6 +7,7 @@ import {
 	normalizePublicBodyHtml,
 	slugifyPublicContent
 } from './public-content-format';
+import { createTtlCache } from './ttl-cache';
 
 export type PublicStandardContentSummary = {
 	slug: string;
@@ -46,6 +47,8 @@ const PUBLIC_STANDARD_CONTENT_BY_SOURCE_TITLE = new Map(
 	PUBLIC_STANDARD_CONTENT_DEFINITIONS.map((definition) => [definition.sourceTitle, definition])
 );
 
+const publishedPublicStandardContentCache = createTtlCache<PublicStandardContentDetail[]>(60 * 1000);
+
 const GLOSSARY_TERMS = [
 	'EU-förordning',
 	'EU-direktiv',
@@ -57,6 +60,10 @@ const GLOSSARY_TERMS = [
 	'Tvärvillkor',
 	'Extra tvärvillkor'
 ] as const;
+
+export function clearPublishedPublicStandardContentCache() {
+	publishedPublicStandardContentCache.clear();
+}
 
 export function getPublicStandardContentDefinition(sourceTitle: string) {
 	return PUBLIC_STANDARD_CONTENT_BY_SOURCE_TITLE.get(sourceTitle) ?? null;
@@ -79,87 +86,53 @@ export function getPublicStandardContentHref(sourceTitle: string) {
 }
 
 export async function listPublishedPublicStandardContent(): Promise<PublicStandardContentSummary[]> {
-	return await withDomainStoreClient(async (client) => {
-		const repository = createContentStudioRepository(client);
-		const latestSnapshot = await repository.findLatestSnapshot();
-
-		if (!latestSnapshot) {
-			return [];
-		}
-
-		const rows = await repository.listStandardContentRows({ snapshotId: latestSnapshot.id });
-		return rows
-			.filter((row) => isPublicStandardContentSourceTitle(row.title))
-			.map((row) => ({
-				slug: getPublicStandardContentSlug(row.title),
-				title: getPublicStandardContentTitle(row.title),
-				contentType: row.contentType,
-				excerpt: extractPublicExcerpt(row.bodyHtml)
-			}));
-	});
+	return (await loadPublishedPublicStandardContentDetails()).map((item) => ({
+		slug: item.slug,
+		title: item.title,
+		contentType: item.contentType,
+		excerpt: item.excerpt
+	}));
 }
 
 export async function getPublishedPublicStandardContentBySlug(
 	slug: string
 ): Promise<PublicStandardContentDetail | null> {
-	return await withDomainStoreClient(async (client) => {
-		const repository = createContentStudioRepository(client);
-		const latestSnapshot = await repository.findLatestSnapshot();
-
-		if (!latestSnapshot) {
-			return null;
-		}
-
-		const rows = await repository.listStandardContentRows({ snapshotId: latestSnapshot.id });
-		const row = rows.find(
-			(item) =>
-				isPublicStandardContentSourceTitle(item.title) &&
-				getPublicStandardContentSlug(item.title) === slug
-		);
-
-		if (!row) {
-			return null;
-		}
-
-		const normalizedBodyHtml = normalizePublicBodyHtml(row.bodyHtml);
-
-		return {
-			slug: getPublicStandardContentSlug(row.title),
-			title: getPublicStandardContentTitle(row.title),
-			contentType: row.contentType,
-			bodyHtml: normalizedBodyHtml,
-			bodyParagraphs: extractPublicParagraphs(normalizedBodyHtml),
-			glossaryEntries: extractGlossaryEntries(normalizedBodyHtml, row.contentType),
-			excerpt: extractPublicExcerpt(normalizedBodyHtml)
-		};
-	});
+	return (await loadPublishedPublicStandardContentDetails()).find((item) => item.slug === slug) ?? null;
 }
 
 export async function getPublishedPublicStandardContentByTitle(title: string) {
-	return await withDomainStoreClient(async (client) => {
-		const repository = createContentStudioRepository(client);
-		const latestSnapshot = await repository.findLatestSnapshot();
+	return (await loadPublishedPublicStandardContentDetails()).find(
+		(item) => item.title === title || item.title === getPublicStandardContentTitle(title)
+	) ?? null;
+}
 
-		if (!latestSnapshot) {
-			return null;
-		}
+async function loadPublishedPublicStandardContentDetails() {
+	return await publishedPublicStandardContentCache.get(async () => {
+		return await withDomainStoreClient(async (client) => {
+			const repository = createContentStudioRepository(client);
+			const latestSnapshot = await repository.findLatestSnapshot();
 
-		const rows = await repository.listStandardContentRows({ snapshotId: latestSnapshot.id });
-		const row = rows.find((item) => item.title === title);
+			if (!latestSnapshot) {
+				return [];
+			}
 
-		if (!row) {
-			return null;
-		}
+			const rows = await repository.listStandardContentRows({ snapshotId: latestSnapshot.id });
+			return rows
+				.filter((row) => isPublicStandardContentSourceTitle(row.title))
+				.map((row) => {
+					const normalizedBodyHtml = normalizePublicBodyHtml(row.bodyHtml);
 
-		return {
-			slug: getPublicStandardContentSlug(row.title),
-			title: getPublicStandardContentTitle(row.title),
-			contentType: row.contentType,
-			bodyHtml: normalizePublicBodyHtml(row.bodyHtml),
-			bodyParagraphs: extractPublicParagraphs(row.bodyHtml),
-			glossaryEntries: extractGlossaryEntries(row.bodyHtml, row.contentType),
-			excerpt: extractPublicExcerpt(row.bodyHtml)
-		};
+					return {
+						slug: getPublicStandardContentSlug(row.title),
+						title: getPublicStandardContentTitle(row.title),
+						contentType: row.contentType,
+						bodyHtml: normalizedBodyHtml,
+						bodyParagraphs: extractPublicParagraphs(normalizedBodyHtml),
+						glossaryEntries: extractGlossaryEntries(normalizedBodyHtml, row.contentType),
+						excerpt: extractPublicExcerpt(normalizedBodyHtml)
+					};
+				});
+		});
 	});
 }
 

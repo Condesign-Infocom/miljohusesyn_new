@@ -3,6 +3,7 @@
 </svelte:head>
 
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { ChecklistOverview, ChecklistOverviewSection } from '$lib/types/checklists';
 
@@ -18,6 +19,9 @@
 	let isExporting = $state(false);
 	let exportKind = $state<'plan' | 'user-full' | 'complete'>('plan');
 	let exportError = $state<string | null>(null);
+	const headingPrefix = $derived(
+		data.title === 'Grundvillkor' || data.title.startsWith('Nya frågor') ? 'Mina' : 'Min'
+	);
 
 	function progressPercent(section: Pick<ChecklistOverviewSection, 'completedQuestions' | 'totalQuestions'>) {
 		if (section.totalQuestions === 0) {
@@ -34,19 +38,6 @@
 	const totalProgress = $derived(
 		totalQuestions === 0 ? 0 : Math.round((completedQuestions / totalQuestions) * 100)
 	);
-	const areaTabs = $derived.by(() => {
-		const seen = new Set<string>();
-		return data.sections.flatMap((section) => {
-			const prefixKey = section.prefix.trim().charAt(0).toUpperCase();
-			const label = sectionCategoryLabels[prefixKey];
-			if (!label || seen.has(prefixKey)) {
-				return [];
-			}
-
-			seen.add(prefixKey);
-			return [{ label, sectionId: section.nodeId }];
-		});
-	});
 	const areaStats = $derived.by(() => {
 		const grouped = new Map<
 			string,
@@ -131,28 +122,40 @@
 			isExporting = false;
 		}
 	}
+
+	function openFilter(slug: string, sectionId: string | null) {
+		if (sectionId) {
+			return goto(
+				resolve('/checklists/[checklistId]/sections/[sectionId]', {
+					checklistId: slug,
+					sectionId
+				})
+			);
+		}
+
+		return goto(resolve('/checklists/[checklistId]', { checklistId: slug }));
+	}
 </script>
 
 <main class="checklist-overview-page">
-	<a class="back-link" href={resolve('/checklists', {})}>Tillbaka till Mina checklistor</a>
+	<a class="back-link" href={resolve('/', {})}>Tillbaka till startsidan</a>
 
 	<header class="page-header">
 		<p class="eyebrow">Checklista</p>
-		<h1>Min {data.title}</h1>
+		<h1>{headingPrefix} {data.title}</h1>
 	</header>
 
-	<nav class="section-tabs" aria-label="Navigera i checklistan">
-		<span class="tab active">Översikt</span>
-		{#each areaTabs as area (area.label)}
-			<a
+	<nav class="checklist-filters" aria-label="Filtrera checklista">
+		{#each data.filters as filter (filter.slug)}
+			<button
+				type="button"
 				class="tab"
-				href={resolve('/checklists/[checklistId]/sections/[sectionId]', {
-					checklistId: data.slug,
-					sectionId: area.sectionId
-				})}
+				class:active={filter.active}
+				aria-current={filter.active ? 'page' : undefined}
+				onclick={() => openFilter(filter.slug, filter.sectionId)}
 			>
-				{area.label}
-			</a>
+				{filter.label}
+			</button>
 		{/each}
 	</nav>
 
@@ -289,6 +292,7 @@
 		line-height: 0.96;
 		font-weight: 600;
 		letter-spacing: -0.03em;
+		white-space: nowrap;
 	}
 
 	h2 {
@@ -298,7 +302,7 @@
 		font-weight: 550;
 	}
 
-	.section-tabs {
+	.checklist-filters {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 10px;
@@ -318,6 +322,7 @@
 		font-size: 0.95rem;
 		font-weight: 600;
 		text-decoration: none;
+		cursor: pointer;
 	}
 
 	.tab.active {
@@ -522,6 +527,10 @@
 	}
 
 	@media (max-width: 760px) {
+		h1 {
+			white-space: normal;
+		}
+
 		.checklist-overview-page {
 			width: min(100% - 28px, 1180px);
 			padding: 28px 0 48px;

@@ -14,7 +14,7 @@ export const load = async ({ locals, url }) => {
 	const profile = await loadEditableProfile(db, user.id);
 
 	if (!profile) {
-		throw redirect(303, '/checklists');
+		throw redirect(303, '/checklists/miljohusesyn');
 	}
 
 	return {

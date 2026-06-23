@@ -38,6 +38,8 @@
 		:	`${page.url.pathname}${page.url.search}${page.url.hash}` || '/'
 	);
 	const downloadRedirectHref = '/login?redirectTo=%2Fdownload%2Fmiljohusesyn';
+	const defaultChecklistHref = '/checklists/miljohusesyn';
+	const defaultChecklistLoginHref = '/login?redirectTo=%2Fchecklists%2Fmiljohusesyn';
 	const loginRedirectHref = $derived(
 		`/login?redirectTo=${encodeURIComponent(nestedLoginRedirectTarget)}`
 	);
@@ -67,7 +69,7 @@
 
 		const insertIndex = baseItems.findIndex((item) => item.label === 'Kontakt');
 		const userItems: PublicNavItem[] = [
-			{ label: 'Mina checklistor', href: '/checklists', matchPrefix: '/checklists' }
+			{ label: 'Mina checklistor', href: defaultChecklistHref, matchPrefix: '/checklists' }
 		];
 
 		if (insertIndex === -1) {
@@ -152,7 +154,7 @@
 	{#if showPublicShell}
 		<PublicFooter
 			downloadHref={data.user ? '/download/miljohusesyn' : downloadRedirectHref}
-			checklistsHref={data.user ? '/checklists' : '/login?redirectTo=%2Fchecklists'}
+			checklistsHref={data.user ? defaultChecklistHref : defaultChecklistLoginHref}
 		/>
 	{/if}
 </div>

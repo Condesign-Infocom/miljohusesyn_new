@@ -34,7 +34,7 @@
 
 	const heroPrimaryCta = $derived<TemplateLink>(
 		data.user ?
-			{ label: 'Öppna mina checklistor', href: route('/checklists') }
+			{ label: 'Öppna mina checklistor', href: route('/checklists/miljohusesyn') }
 		:	{ label: 'Logga in / Registrera dig', href: route('/login') }
 	);
 

@@ -1,3 +1,4 @@
+import { invalidateRuntimeSessionCacheForUser } from '$lib/server/auth';
 import {
 	createActivityState,
 	createAnimalState,
@@ -178,6 +179,7 @@ export async function saveEditableProfile(db: AppDb, userId: number, input: Edit
 		input: normalizedInput,
 		isAdmin: false
 	});
+	invalidateRuntimeSessionCacheForUser(userId);
 
 	if (getRuntimeDbEngine() === 'postgres') {
 		return profileUpdateEventId;

@@ -78,5 +78,3 @@ export function createSeededDb() {
 
 	return db;
 }
-
-export const seededDb = createSeededDb();

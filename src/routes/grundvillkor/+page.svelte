@@ -7,7 +7,10 @@
 
 	let { data }: { data: { user?: App.Locals['user'] | null } } = $props();
 
-	const route = (path: string) => (resolve as unknown as (pathname: string) => string)(path);
+	const grundvillkorChecklistHref = resolve('/checklists/[checklistId]', {
+		checklistId: 'grundvillkor'
+	});
+	const grundvillkorLoginHref = `${resolve('/login', {})}?redirectTo=%2Fgrundvillkor`;
 </script>
 
 <main class="public-page">
@@ -25,9 +28,9 @@
 		<p>
 			Du kan se alla grundvillkor inom Allmänna Gårdskrav, Växtodling och Djurhållning i
 			{#if data.user}
-				<a href={route('/checklists')}>Lista grundvillkor</a>.
+				<a href={grundvillkorChecklistHref}>Lista grundvillkor</a>.
 			{:else}
-				<a href={route('/login?redirectTo=%2Fgrundvillkor')}>Lista grundvillkor</a>.
+				<a href={grundvillkorLoginHref}>Lista grundvillkor</a>.
 			{/if}
 		</p>
 
@@ -51,7 +54,7 @@
 		</p>
 
 		{#if data.user}
-			<p><a href={route('/checklists')}>Gå vidare till dina checklistor</a></p>
+			<p><a href={grundvillkorChecklistHref}>Gå vidare till dina checklistor</a></p>
 		{/if}
 	</section>
 </main>

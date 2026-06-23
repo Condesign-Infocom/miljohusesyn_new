@@ -10,10 +10,11 @@ import {
 	appUsers
 } from '$lib/server/db/schema';
 import { saveAnswerState } from '$lib/server/services/answers';
-import { createTestDb, seededDb } from './test-db';
+import { createSeededDb, createTestDb } from './test-db';
 
 describe('saveAnswerState', () => {
 	it('upserts response, comment, and due date for one user question', async () => {
+		const seededDb = createSeededDb();
 		await saveAnswerState(seededDb, {
 			userId: 1,
 			questionId: 1,

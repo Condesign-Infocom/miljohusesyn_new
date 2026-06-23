@@ -1,4 +1,5 @@
-import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
+import type Database from 'better-sqlite3';
 import { Pool, type QueryResultRow } from 'pg';
 import {
 	requirePostgresDsn,
@@ -7,6 +8,7 @@ import {
 	type DomainStoreConfig
 } from '../../../../scripts/domain-store-config';
 
+const require = createRequire(import.meta.url);
 export type DomainStoreEngine = 'sqlite' | 'postgres';
 
 export type DomainStoreClient = {
@@ -24,6 +26,14 @@ type DomainStoreClientOptions = {
 
 let domainStorePostgresPool: Pool | null = null;
 let domainStorePostgresPoolDsn: string | null = null;
+let sqliteDatabaseConstructor: typeof Database | null = null;
+
+function loadBetterSqlite3() {
+	sqliteDatabaseConstructor ??=
+		(require('better-sqlite3') as { default?: typeof Database }).default ??
+		(require('better-sqlite3') as typeof Database);
+	return sqliteDatabaseConstructor;
+}
 
 export function getDomainStoreEngine(env: NodeJS.ProcessEnv = process.env): DomainStoreEngine {
 	return resolveDomainStoreConfig(env).engine;
@@ -85,7 +95,8 @@ export function createDomainStoreClient(
 		};
 	}
 
-	const sqlite = new Database(requireSqliteDomainStorePath(env));
+	const SqliteDatabase = loadBetterSqlite3();
+	const sqlite = new SqliteDatabase(requireSqliteDomainStorePath(env));
 	sqlite.pragma('foreign_keys = ON');
 
 	return {

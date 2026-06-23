@@ -9,9 +9,17 @@ export type ChecklistList = {
 	items: ChecklistListItem[];
 };
 
+export type ChecklistFilterOption = {
+	slug: string;
+	label: string;
+	sectionId: string | null;
+	active: boolean;
+};
+
 export type ChecklistOverview = {
 	slug: string;
 	title: string;
+	filters: ChecklistFilterOption[];
 	sections: ChecklistOverviewSection[];
 	canExportComplete?: boolean;
 	showExportActions?: boolean;
@@ -28,6 +36,7 @@ export type ChecklistOverviewSection = {
 export type ChecklistSectionDetail = {
 	checklistSlug: string;
 	checklistTitle: string;
+	filters: ChecklistFilterOption[];
 	sections: ChecklistOverviewSection[];
 	section: {
 		nodeId: string;

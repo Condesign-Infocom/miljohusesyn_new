@@ -7,6 +7,7 @@ import {
 	paragraphsToPublicBodyHtml
 } from './public-content-format';
 import { ensureSeededPublicNewsRows } from './public-news-store';
+import { createTtlCache } from './ttl-cache';
 
 type NewsDraftPayload = {
 	title?: string;
@@ -16,6 +17,12 @@ type NewsDraftPayload = {
 	bodyParagraphs?: string[];
 	legacyUrl?: string;
 };
+
+const publishedPublicNewsCache = createTtlCache<PublicNewsItem[]>(60 * 1000);
+
+export function clearPublishedPublicNewsCache() {
+	publishedPublicNewsCache.clear();
+}
 
 function parseDraftPayload(payloadJson?: string | null) {
 	if (!payloadJson) {
@@ -71,27 +78,41 @@ function isRecoverablePublicNewsFailure(error: unknown) {
 		return false;
 	}
 
+	const code = 'code' in error && typeof error.code === 'string' ? error.code.toLowerCase() : '';
 	const message = error.message.toLowerCase();
 	return (
+		code === 'econnrefused' ||
+		code === 'econnreset' ||
+		code === 'etimedout' ||
+		code === '57p01' ||
+		code === '57p02' ||
 		message.includes('content_snapshots') ||
+		message.includes('econnreset') ||
+		message.includes('read econnreset') ||
 		message.includes('econrefused') ||
 		message.includes('connect econnrefused') ||
+		message.includes('terminating connection') ||
+		message.includes('connection terminated unexpectedly') ||
+		message.includes('connection ended unexpectedly') ||
+		message.includes('the database system is shutting down') ||
 		message.includes('relation "') ||
 		message.includes('does not exist')
 	);
 }
 
 export async function listPublishedPublicNews() {
-	try {
-		const items = await mapPublishedNewsRows();
-		return items.length > 0 ? items : publicNewsItems;
-	} catch (error) {
-		if (!isRecoverablePublicNewsFailure(error)) {
-			throw error;
-		}
+	return await publishedPublicNewsCache.get(async () => {
+		try {
+			const items = await mapPublishedNewsRows();
+			return items.length > 0 ? items : publicNewsItems;
+		} catch (error) {
+			if (!isRecoverablePublicNewsFailure(error)) {
+				throw error;
+			}
 
-		return publicNewsItems;
-	}
+			return publicNewsItems;
+		}
+	});
 }
 
 export async function getPublishedPublicNewsBySlug(slug: string) {

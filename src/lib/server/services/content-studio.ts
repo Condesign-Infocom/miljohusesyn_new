@@ -24,11 +24,20 @@ import {
 	normalizePublicBodyHtml,
 	paragraphsToPublicBodyHtml
 } from './public-content-format';
+import { clearPublishedPublicFactsCache } from './public-facts';
+import { clearPublishedPublicNewsCache } from './public-news';
 import { ensureSeededPublicNewsRows } from './public-news-store';
+import { clearPublishedPublicStandardContentCache } from './public-standard-content';
 import {
 	syncDomainStoreSnapshot,
 	syncPostgresDomainStoreSnapshot
 } from '../sync/importer-sync';
+
+function clearPublishedContentCaches() {
+	clearPublishedPublicFactsCache();
+	clearPublishedPublicNewsCache();
+	clearPublishedPublicStandardContentCache();
+}
 
 export type ContentStudioFactListData = {
 	latestSnapshot: ContentStudioSnapshot | null;
@@ -885,13 +894,12 @@ export async function materializePublishedSnapshot(snapshotId?: string) {
 	const config = resolveDomainStoreConfig();
 	const db = createDb();
 
-	if (config.engine === 'postgres') {
-		const postgresDsn = requirePostgresDsn();
-		return await syncPostgresDomainStoreSnapshot(db, postgresDsn, snapshotId);
-	}
-
-	const sqlitePath = requireSqliteDomainStorePath();
-	return await syncDomainStoreSnapshot(db, sqlitePath, snapshotId);
+	const result =
+		config.engine === 'postgres'
+			? await syncPostgresDomainStoreSnapshot(db, requirePostgresDsn(), snapshotId)
+			: await syncDomainStoreSnapshot(db, requireSqliteDomainStorePath(), snapshotId);
+	clearPublishedContentCaches();
+	return result;
 }
 
 export async function loadStandardContentEditor(
@@ -1399,6 +1407,10 @@ export async function saveFactDraft(input: {
 		return await loadFactEditor(input.factId, input.userId, latestSnapshot.id);
 	});
 
+	if (Object.keys(validation.errors).length === 0) {
+		clearPublishedContentCaches();
+	}
+
 	return {
 		...result,
 		validation
@@ -1761,6 +1773,10 @@ export async function saveStandardContentDraft(input: {
 		return await loadStandardContentEditor(input.blockId, input.userId, latestSnapshot.id);
 	});
 
+	if (Object.keys(validation.errors).length === 0) {
+		clearPublishedContentCaches();
+	}
+
 	return {
 		...result,
 		validation
@@ -1847,6 +1863,10 @@ export async function saveNewsDraft(input: {
 
 		return await loadNewsEditor(input.newsId, input.userId, latestSnapshot.id);
 	});
+
+	if (Object.keys(validation.errors).length === 0) {
+		clearPublishedContentCaches();
+	}
 
 	return {
 		...result,

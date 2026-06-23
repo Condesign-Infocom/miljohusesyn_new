@@ -132,7 +132,11 @@ describe('auth guards', () => {
 		} as const;
 
 		expect(requireAdmin({ user: adminUser } as App.Locals, url)).toEqual(adminUser);
-		expectRedirect(() => requireAdmin({ user: editorUser } as App.Locals, url), 303, '/checklists');
+		expectRedirect(
+			() => requireAdmin({ user: editorUser } as App.Locals, url),
+			303,
+			'/checklists/miljohusesyn'
+		);
 	});
 
 	it('allows editorial staff into content studio pages', () => {
@@ -165,7 +169,7 @@ describe('auth guards', () => {
 		expectRedirect(
 			() => requireContentStudioUser({ user: plainUser } as App.Locals, url),
 			303,
-			'/checklists'
+			'/checklists/miljohusesyn'
 		);
 	});
 

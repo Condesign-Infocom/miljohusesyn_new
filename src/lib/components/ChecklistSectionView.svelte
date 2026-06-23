@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import FactModal from '$lib/components/FactModal.svelte';
 	import type { ChecklistSectionDetail, ChecklistSectionQuestion } from '$lib/types/checklists';
@@ -129,16 +130,25 @@
 		return completedInGroup(group) === group.questions.length && group.questions.length > 0;
 	}
 
-	function isActiveArea(section: { nodeId: string }) {
-		return section.nodeId === data.section.nodeId;
-	}
-
 	function hasNewQuestion(group: { questions: ChecklistSectionQuestion[] }) {
 		return group.questions.some((question) => question.newFlag);
 	}
 
 	function answerLabel(value: 'yes' | 'no' | 'na') {
 		return value === 'yes' ? 'Ja' : value === 'no' ? 'Nej' : 'Ej akt.';
+	}
+
+	function openFilter(slug: string, sectionId: string | null) {
+		if (sectionId) {
+			return goto(
+				resolve('/checklists/[checklistId]/sections/[sectionId]', {
+					checklistId: slug,
+					sectionId
+				})
+			);
+		}
+
+		return goto(resolve('/checklists/[checklistId]', { checklistId: slug }));
 	}
 </script>
 
@@ -169,18 +179,16 @@
 
 	<nav class="section-tabs" aria-label="Navigera i checklistan">
 		<a class="tab" href={resolve('/checklists/[checklistId]', { checklistId: data.checklistSlug })}>Översikt</a>
-		{#each data.sections as area (area.nodeId)}
-			<a
+		{#each data.filters as filter (filter.slug)}
+			<button
+				type="button"
 				class="tab"
-				class:active-tab={isActiveArea(area)}
-				aria-current={isActiveArea(area) ? 'page' : undefined}
-				href={resolve('/checklists/[checklistId]/sections/[sectionId]', {
-					checklistId: data.checklistSlug,
-					sectionId: area.nodeId
-				})}
+				class:active-tab={filter.active}
+				aria-current={filter.active ? 'page' : undefined}
+				onclick={() => openFilter(filter.slug, filter.sectionId)}
 			>
-				{area.title}
-			</a>
+				{filter.label}
+			</button>
 		{/each}
 	</nav>
 
@@ -536,6 +544,7 @@
 		font-size: 0.95rem;
 		font-weight: 600;
 		text-decoration: none;
+		cursor: pointer;
 	}
 
 	.tab.active-tab {

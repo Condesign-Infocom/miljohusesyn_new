@@ -5,6 +5,7 @@ import {
 	normalizePublicBodyHtml,
 	slugifyPublicContent
 } from './public-content-format';
+import { createTtlCache } from './ttl-cache';
 
 export type PublicFactSummary = {
 	slug: string;
@@ -23,6 +24,12 @@ type FactRow = {
 	title: string;
 	bodyHtml: string;
 };
+
+const publicFactRowsCache = createTtlCache<FactRow[]>(60 * 1000);
+
+export function clearPublishedPublicFactsCache() {
+	publicFactRowsCache.clear();
+}
 
 export async function listPublishedPublicFacts(): Promise<PublicFactSummary[]> {
 	const rows = await loadPublishedFactRows();
@@ -63,6 +70,10 @@ export async function getPublishedPublicFactBySlug(slug: string): Promise<Public
 }
 
 async function loadPublishedFactRows(): Promise<FactRow[]> {
+	return await publicFactRowsCache.get(loadPublishedFactRowsUncached);
+}
+
+async function loadPublishedFactRowsUncached(): Promise<FactRow[]> {
 	const result = await requireRuntimePostgresPool().query<FactRow>(
 		`
 			select distinct on (f.node_id, f.title)

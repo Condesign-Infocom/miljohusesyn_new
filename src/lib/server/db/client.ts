@@ -1,9 +1,12 @@
-import Database from 'better-sqlite3';
-import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { createRequire } from 'node:module';
+import type Database from 'better-sqlite3';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { Pool } from 'pg';
 import * as schema from './schema';
 import { resolveRuntimeDbConfig } from './runtime-db-config';
 import { migrateDb } from './migrate';
+
+const require = createRequire(import.meta.url);
 
 export type AppDb = BetterSQLite3Database<typeof schema>;
 export type RuntimeDbEngine = 'sqlite' | 'postgres';
@@ -15,6 +18,29 @@ export type RuntimeDbContext = {
 
 let runtimePostgresPool: Pool | null = null;
 const runtimePostgresDbStub = Object.freeze({ __runtimeEngine: 'postgres' }) as unknown as AppDb;
+let sqliteDatabaseConstructor: typeof Database | null = null;
+let drizzleSqliteFactory:
+	| ((options: { client: unknown; schema: typeof schema }) => BetterSQLite3Database<typeof schema>)
+	| null = null;
+
+function loadBetterSqlite3() {
+	sqliteDatabaseConstructor ??=
+		(require('better-sqlite3') as { default?: typeof Database }).default ??
+		(require('better-sqlite3') as typeof Database);
+	return sqliteDatabaseConstructor;
+}
+
+function loadSqliteDrizzle() {
+	drizzleSqliteFactory ??= (
+		require('drizzle-orm/better-sqlite3') as {
+			drizzle: (options: {
+				client: unknown;
+				schema: typeof schema;
+			}) => BetterSQLite3Database<typeof schema>;
+		}
+	).drizzle;
+	return drizzleSqliteFactory;
+}
 
 export function getRuntimeDbEngine(env: NodeJS.ProcessEnv = process.env): RuntimeDbEngine {
 	return resolveRuntimeDbConfig(env).engine;
@@ -55,7 +81,9 @@ export function requireRuntimePostgresPool() {
 
 export function createDb(filename = resolveRuntimeDbConfig().sqlitePath): AppDb {
 	if (filename === ':memory:') {
-		const sqlite = new Database(filename);
+		const SqliteDatabase = loadBetterSqlite3();
+		const drizzle = loadSqliteDrizzle();
+		const sqlite = new SqliteDatabase(filename);
 		sqlite.pragma('foreign_keys = ON');
 		migrateDb(sqlite);
 		return drizzle({ client: sqlite, schema });

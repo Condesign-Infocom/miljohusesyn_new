@@ -1,6 +1,6 @@
 import { activityOptions, foodProcessingOptions } from '$lib/profile-config';
 import { normalizeAppRole, type AppRole } from '$lib/roles';
-import { demoPassword, hashPassword } from '$lib/server/auth';
+import { demoPassword, hashPassword, invalidateRuntimeSessionCacheForUser } from '$lib/server/auth';
 import { createDb, type AppDb } from '../db/client';
 import { createRuntimeGateway } from '../db/runtime-gateway';
 import {
@@ -208,6 +208,7 @@ export async function updateRuntimeAdminUserAccount(
 		targetUserId,
 		values
 	});
+	invalidateRuntimeSessionCacheForUser(targetUserId);
 
 	const user = await createRuntimeGateway(db).findUserById(targetUserId);
 	if (user) {
@@ -239,6 +240,7 @@ export async function deleteRuntimeAdminUser(
 	db = createDb()
 ) {
 	await deleteAdminUser(db, editorUserId, targetUserId);
+	invalidateRuntimeSessionCacheForUser(targetUserId);
 	await runBestEffortShadowSync('delete mirrored runtime user', () =>
 		runtimePostgresShadow.deleteUserFromRuntimePostgres(targetUserId)
 	);
@@ -246,6 +248,7 @@ export async function deleteRuntimeAdminUser(
 
 export async function resetRuntimeAdminUserPassword(targetUserId: number, db = createDb()) {
 	await resetAdminUserPassword(db, targetUserId);
+	invalidateRuntimeSessionCacheForUser(targetUserId);
 	const user = await createRuntimeGateway(db).findUserById(targetUserId);
 
 	if (user) {

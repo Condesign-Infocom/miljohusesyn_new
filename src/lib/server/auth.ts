@@ -16,6 +16,46 @@ export const demoPassword = 'demo123';
 
 const passwordKeyLength = 64;
 const sessionTtlMs = 7 * 24 * 60 * 60 * 1000;
+const sessionUserCacheTtlMs = 60 * 1000;
+const missingSessionCacheTtlMs = 10 * 1000;
+
+type CachedSessionUser = {
+	user: AuthUser | null;
+	expiresAt: number;
+};
+
+const sessionUserCache = new Map<string, CachedSessionUser>();
+
+function pruneSessionUserCache(nowMs = Date.now()) {
+	for (const [tokenHash, entry] of sessionUserCache) {
+		if (entry.expiresAt <= nowMs) {
+			sessionUserCache.delete(tokenHash);
+		}
+	}
+}
+
+function cacheSessionUser(tokenHash: string, user: AuthUser | null, expiresAtMs: number) {
+	sessionUserCache.set(tokenHash, {
+		user,
+		expiresAt: Math.min(Date.now() + sessionUserCacheTtlMs, expiresAtMs)
+	});
+}
+
+export function invalidateRuntimeSessionCache(token: string | undefined) {
+	if (!token) {
+		return;
+	}
+
+	sessionUserCache.delete(hashSessionToken(token));
+}
+
+export function invalidateRuntimeSessionCacheForUser(userId: number) {
+	for (const [tokenHash, entry] of sessionUserCache) {
+		if (entry.user?.id === userId) {
+			sessionUserCache.delete(tokenHash);
+		}
+	}
+}
 
 export function hashPassword(password: string, salt = randomBytes(16).toString('hex')) {
 	const hash = scryptSync(password, salt, passwordKeyLength).toString('hex');
@@ -130,7 +170,35 @@ export async function readRuntimeSessionUser(
 	now = new Date(),
 	db = createDb()
 ) {
-	return await readSessionUser(db, token, now);
+	if (!token) {
+		return null;
+	}
+
+	const tokenHash = hashSessionToken(token);
+	const nowMs = now.getTime();
+	const cached = sessionUserCache.get(tokenHash);
+
+	if (cached && cached.expiresAt > nowMs) {
+		return cached.user;
+	}
+
+	pruneSessionUserCache(nowMs);
+
+	const gateway = createRuntimeGateway(db);
+	const session = await gateway.findActiveSessionByTokenHash(tokenHash, now.toISOString());
+
+	if (!session) {
+		sessionUserCache.set(tokenHash, {
+			user: null,
+			expiresAt: nowMs + missingSessionCacheTtlMs
+		});
+		return null;
+	}
+
+	const userRow = await gateway.findUserById(session.userId);
+	const user = userRow ? toAuthUser(userRow) : null;
+	cacheSessionUser(tokenHash, user, new Date(session.expiresAt).getTime());
+	return user;
 }
 
 export async function deleteRuntimeSession(token: string | undefined, db = createDb()) {
@@ -138,6 +206,7 @@ export async function deleteRuntimeSession(token: string | undefined, db = creat
 		return;
 	}
 
+	invalidateRuntimeSessionCache(token);
 	await deleteSession(db, token);
 	await deleteMirroredSessionFromRuntimePostgres(hashSessionToken(token));
 }
@@ -169,7 +238,7 @@ export function requireAdmin(locals: App.Locals, url: URL) {
 	const user = requireUser(locals, url);
 
 	if (!canManageUsers(user.role)) {
-		throw redirect(303, '/checklists');
+		throw redirect(303, '/checklists/miljohusesyn');
 	}
 
 	return user;
@@ -179,7 +248,7 @@ export function requireContentStudioUser(locals: App.Locals, url: URL) {
 	const user = requireUser(locals, url);
 
 	if (!canAccessAdmin(user.role)) {
-		throw redirect(303, '/checklists');
+		throw redirect(303, '/checklists/miljohusesyn');
 	}
 
 	return user;

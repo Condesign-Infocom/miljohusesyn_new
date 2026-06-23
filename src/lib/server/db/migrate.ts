@@ -1,15 +1,25 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { Client } from 'pg';
 import { appRoles } from '$lib/roles';
 import { requireRuntimePostgresDsn, resolveRuntimeDbConfig } from './runtime-db-config';
 import { resetRuntimePostgresSequences } from './runtime-postgres-sequences';
 
+const require = createRequire(import.meta.url);
 const defaultDbPath = 'data/checklist.sqlite';
 type SqliteDatabase = InstanceType<typeof Database>;
 const appRoleSqlList = appRoles.map((role) => `'${role}'`).join(', ');
+let sqliteDatabaseConstructor: typeof Database | null = null;
+
+function loadBetterSqlite3() {
+	sqliteDatabaseConstructor ??=
+		(require('better-sqlite3') as { default?: typeof Database }).default ??
+		(require('better-sqlite3') as typeof Database);
+	return sqliteDatabaseConstructor;
+}
 
 export function loadRuntimeSchemaSql(engine: 'sqlite' | 'postgres' = 'sqlite') {
 	return fs.readFileSync(resolveRuntimeSchemaPath(engine), 'utf8');
@@ -137,7 +147,8 @@ export function migrateRuntimeDb(filename = process.env.APP_DB_PATH ?? defaultDb
 
 	const resolvedFilename = resolveRuntimeDbPath(filename);
 
-	const sqlite = new Database(resolvedFilename);
+	const SqliteDatabase = loadBetterSqlite3();
+	const sqlite = new SqliteDatabase(resolvedFilename);
 
 	try {
 		sqlite.pragma('foreign_keys = ON');
