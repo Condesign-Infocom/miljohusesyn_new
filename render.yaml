@@ -3,7 +3,7 @@ services:
     name: miljohusesyn-app
     runtime: node
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile && PLAYWRIGHT_BROWSERS_PATH=0 pnpm exec playwright install --with-deps chromium && pnpm build
     startCommand: pnpm db:migrate:runtime-postgres && pnpm start
     autoDeploy: true
     healthCheckPath: /

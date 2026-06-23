@@ -10,6 +10,7 @@ import { withDomainStoreClient } from '$lib/server/domain-store/client';
 import { createContentStudioRepository } from '$lib/server/domain-store/content-studio-repository';
 import { normalizePublicBodyHtml } from './public-content-format';
 import { canViewQuestion, canViewSection, loadVisibilityContext } from './visibility';
+import { resolveChromePath } from './chrome-path';
 
 type StandardContentBlock = {
 	blockId: string | null;
@@ -2104,24 +2105,6 @@ function escapeHtml(value: string) {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
-}
-
-function resolveChromePath() {
-	const candidates = [
-		process.env.PUPPETEER_EXECUTABLE_PATH,
-		'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-		'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-		'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-		'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-		'C:\\Program Files\\Chromium\\Application\\chrome.exe'
-	].filter((value): value is string => Boolean(value));
-
-	return Promise.any(
-		candidates.map(async (candidate) => {
-			await fs.access(candidate);
-			return candidate;
-		})
-	).catch(() => null);
 }
 
 function runProcess(command: string, args: string[], cwd: string) {

@@ -10,6 +10,7 @@ import {
 import {
 	normalizePublicBodyHtml
 } from './public-content-format';
+import { resolveChromePath } from './chrome-path';
 
 type QaFact = {
 	factRowId: string;
@@ -536,27 +537,6 @@ export function renderChecklistQaReportHtml(report: QaReport) {
     </main>
   </body>
 </html>`;
-}
-
-async function resolveChromePath() {
-	const candidates = [
-		process.env.CHROME_PATH,
-		'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-		'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-		'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-		'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
-	].filter((candidate): candidate is string => Boolean(candidate));
-
-	for (const candidate of candidates) {
-		try {
-			await fs.access(candidate);
-			return candidate;
-		} catch {
-			continue;
-		}
-	}
-
-	return null;
 }
 
 function questionFlags(flags: {
