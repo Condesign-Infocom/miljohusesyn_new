@@ -206,7 +206,7 @@
 					Vill du veta mer om lagkravet klickar du på informationsikonen
 					{#if firstFactNodeId}
 						<button class="inline-info" type="button" aria-label="Visa information" onclick={() => openFact(firstFactNodeId)}>
-							<span class="fa fa-info-circle" aria-hidden="true"></span>
+							<span class="info-glyph" aria-hidden="true">i</span>
 						</button>
 					{/if}
 				</p>
@@ -297,7 +297,7 @@
 											selectedGroup.questions.find((question) => question.factNodeId)?.factNodeId ?? ''
 										)}
 								>
-									<span class="fa fa-info-circle" aria-hidden="true"></span>
+									<span class="info-glyph" aria-hidden="true">i</span>
 								</button>
 							{/if}
 						</h2>
@@ -355,7 +355,7 @@
 											aria-label={`Visa information för ${question.prefix}`}
 											onclick={() => openFact(question.factNodeId!)}
 										>
-											<span class="fa fa-info-circle" aria-hidden="true"></span>
+											<span class="info-glyph" aria-hidden="true">i</span>
 										</button>
 									{/if}
 								</div>
@@ -585,6 +585,9 @@
 	.inline-info,
 	.header-info,
 	.info-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 		border: 0;
 		background: transparent;
 		color: var(--color-leaf);
@@ -821,6 +824,20 @@
 
 	.info-button {
 		font-size: 1.02rem;
+	}
+
+	.info-glyph {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.2rem;
+		height: 1.2rem;
+		border: 1px solid currentColor;
+		border-radius: 999px;
+		font-size: 0.82rem;
+		font-weight: 700;
+		font-style: normal;
+		line-height: 1;
 	}
 
 	.comment-panel {

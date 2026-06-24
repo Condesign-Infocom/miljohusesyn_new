@@ -2748,37 +2748,19 @@ function resolvePublishDecision(
 		readiness: ContentStudioChecklistReadiness;
 	}> = []
 ): ContentStudioPublishDecision {
-	const blockingChecklistTitles = linkedChecklistStates
-		.filter((item) => item.readiness.state === 'blocking')
-		.map((item) => item.title);
-	const warningChecklistTitles = linkedChecklistStates
-		.filter((item) => item.readiness.state === 'warning')
-		.map((item) => item.title);
-
-	if (blockingChecklistTitles.length > 0) {
-		return {
-			state: 'blocked',
-			reason: `Kopplad checklista har blockerande strukturproblem: ${blockingChecklistTitles.join(', ')}.`
-		};
-	}
+	void linkedChecklistStates;
 
 	if (validationStatus === 'valid') {
 		return {
-			state: warningChecklistTitles.length > 0 ? 'warning' : 'ready',
-			reason:
-				warningChecklistTitles.length > 0 ?
-					`Utkastet är redo att publiceras, men kopplade checklistor har varningar: ${warningChecklistTitles.join(', ')}.`
-				:	'Utkastet är redo att publiceras.'
+			state: 'ready',
+			reason: 'Utkastet är redo att publiceras.'
 		};
 	}
 
 	if (validationStatus === 'warning') {
 		return {
 			state: 'warning',
-			reason:
-				warningChecklistTitles.length > 0 ?
-					`Utkastet kan publiceras, men både utkastet och kopplade checklistor har varningar: ${warningChecklistTitles.join(', ')}.`
-				:	'Utkastet kan publiceras, men har kvar varningar att följa upp.'
+			reason: 'Utkastet kan publiceras, men har kvar varningar att följa upp.'
 		};
 	}
 
