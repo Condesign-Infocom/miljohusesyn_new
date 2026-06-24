@@ -1,15 +1,15 @@
 services:
   - type: web
     name: miljohusesyn-app
-    runtime: node
+    runtime: docker
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && PLAYWRIGHT_BROWSERS_PATH=0 pnpm exec playwright install --with-deps chromium && pnpm build
-    startCommand: pnpm db:migrate:runtime-postgres && pnpm start
     autoDeploy: true
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
+      - key: CHROME_PATH
+        value: /usr/bin/chromium
       - key: APP_DB_ENGINE
         value: postgres
       - key: APP_DB_POSTGRES_DSN
