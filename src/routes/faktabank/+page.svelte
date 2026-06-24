@@ -42,12 +42,12 @@
 </script>
 
 <main class="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
-	<section class="rounded-[2rem] border border-line bg-cream/85 p-6 shadow-xl shadow-bark/5 md:p-8">
-		<div class="max-w-3xl">
+	<section class="max-w-4xl">
+		<div>
 			<p class="text-xs font-semibold uppercase tracking-[0.2em] text-leaf">Faktabank</p>
-			<h1 class="font-display mt-3 text-4xl font-semibold tracking-tight text-bark md:text-6xl">
+			<h2 class="font-display mt-3 text-4xl font-semibold tracking-tight text-bark md:text-6xl">
 				Publik ingång till regler, faktatexter och nedladdningar.
-			</h1>
+			</h2>
 			<p class="mt-4 text-base leading-7 text-ink/75 md:text-lg">
 				Här möts publicerade faktasidor i databasen, bevarade ämnesöversikter och nedladdningsbart
 				material från den tidigare webbplatsen.
@@ -71,18 +71,33 @@
 			{#if data.searchResults.length > 0}
 				<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 					{#each data.searchResults as result (`${result.kind}:${result.href}`)}
-						<a
-							class="rounded-[1.6rem] border border-line bg-white/70 p-5 shadow-sm shadow-bark/5 transition hover:-translate-y-0.5 hover:border-leaf/40"
-							href={result.href}
-							target={result.kind === 'download' ? '_blank' : undefined}
-							rel={result.kind === 'download' ? 'noreferrer' : undefined}
-						>
-							<p class="text-xs font-semibold uppercase tracking-[0.16em] text-mute">{result.meta}</p>
-							<h3 class="font-display mt-3 text-2xl font-semibold tracking-tight text-bark">
-								{result.title}
-							</h3>
-							<p class="mt-3 text-sm leading-6 text-ink/75 md:text-base">{result.excerpt}</p>
-						</a>
+						{#if result.kind === 'download' && !result.href.startsWith('/')}
+							<a
+								class="rounded-[1.6rem] border border-line bg-white/70 p-5 shadow-sm shadow-bark/5 transition hover:-translate-y-0.5 hover:border-leaf/40"
+								href={result.href}
+								target="_blank"
+								rel="noreferrer"
+							>
+								<p class="text-xs font-semibold uppercase tracking-[0.16em] text-mute">{result.meta}</p>
+								<h3 class="font-display mt-3 text-2xl font-semibold tracking-tight text-bark">
+									{result.title}
+								</h3>
+								<p class="mt-3 text-sm leading-6 text-ink/75 md:text-base">{result.excerpt}</p>
+							</a>
+						{:else}
+							<a
+								class="rounded-[1.6rem] border border-line bg-white/70 p-5 shadow-sm shadow-bark/5 transition hover:-translate-y-0.5 hover:border-leaf/40"
+								href={route(result.href)}
+								target={result.kind === 'download' ? '_blank' : undefined}
+								rel={result.kind === 'download' ? 'noreferrer' : undefined}
+							>
+								<p class="text-xs font-semibold uppercase tracking-[0.16em] text-mute">{result.meta}</p>
+								<h3 class="font-display mt-3 text-2xl font-semibold tracking-tight text-bark">
+									{result.title}
+								</h3>
+								<p class="mt-3 text-sm leading-6 text-ink/75 md:text-base">{result.excerpt}</p>
+							</a>
+						{/if}
 					{/each}
 				</div>
 			{:else}

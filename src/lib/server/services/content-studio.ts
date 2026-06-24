@@ -22,12 +22,17 @@ import {
 import {
 	extractPublicParagraphs,
 	normalizePublicBodyHtml,
-	paragraphsToPublicBodyHtml
+	paragraphsToPublicBodyHtml,
+	slugifyPublicContent
 } from './public-content-format';
 import { clearPublishedPublicFactsCache } from './public-facts';
 import { clearPublishedPublicNewsCache } from './public-news';
 import { ensureSeededPublicNewsRows } from './public-news-store';
 import { clearPublishedPublicStandardContentCache } from './public-standard-content';
+import {
+	getFrontendContentPreset,
+	isFrontendContentTitle
+} from './content-studio-frontend-content';
 import {
 	syncDomainStoreSnapshot,
 	syncPostgresDomainStoreSnapshot
@@ -238,7 +243,6 @@ export type ContentStudioNewsDraftInput = {
 	publishedAt: string;
 	excerpt: string;
 	bodyParagraphs: string[];
-	legacyUrl: string;
 };
 
 export type ContentStudioFactEditorDraft = ContentStudioFactDraftInput & {
@@ -352,7 +356,6 @@ type NewsDraftPayload = {
 	excerpt?: string;
 	bodyHtml?: string;
 	bodyParagraphs?: string[];
-	legacyUrl?: string;
 };
 
 export async function loadContentStudioLandingData(snapshotId?: string): Promise<ContentStudioSummary> {
@@ -924,8 +927,7 @@ export async function approvePublishingReview(input: {
 				excerpt: payload?.excerpt ?? item?.excerpt ?? '',
 				bodyParagraphs:
 					payload?.bodyParagraphs ??
-					extractPublicParagraphs(payload?.bodyHtml ?? item?.bodyHtml ?? ''),
-				legacyUrl: payload?.legacyUrl ?? item?.legacyUrl ?? ''
+					extractPublicParagraphs(payload?.bodyHtml ?? item?.bodyHtml ?? '')
 			});
 			await applyNewsDraftRevision({
 				repository,
@@ -1539,7 +1541,7 @@ async function applyNewsDraftRevision(input: {
 		publishedAt: input.values.publishedAt,
 		excerpt: input.values.excerpt,
 		bodyHtml: paragraphsToPublicBodyHtml(input.values.bodyParagraphs),
-		legacyUrl: input.values.legacyUrl
+		legacyUrl: item.legacyUrl
 	});
 
 	return item;
@@ -2029,6 +2031,177 @@ export async function saveNewsDraft(input: {
 	};
 }
 
+export async function createNewsItem(input: { snapshotId?: string }) {
+	const now = new Date();
+	const publishedAt = new Intl.DateTimeFormat('sv-SE', {
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric',
+		timeZone: 'Europe/Stockholm'
+	}).format(now);
+	const datedSlug = new Intl.DateTimeFormat('sv-SE', {
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		timeZone: 'Europe/Stockholm'
+	})
+		.format(now)
+		.replaceAll('-', '');
+
+	const item = await withDomainStoreClient(async (client) => {
+		const repository = createContentStudioRepository(client);
+		const latestSnapshot = input.snapshotId ?
+			await repository.findSnapshot(input.snapshotId)
+		:	await repository.findLatestSnapshot();
+
+		if (!latestSnapshot) {
+			throw new Error('Ingen snapshot finns att redigera mot.');
+		}
+
+		const existingRows = await repository.listNewsRows(latestSnapshot.id);
+		const sortOrder = existingRows.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1;
+		const slug = makeUniquePublicSlug(
+			`nyhet-${datedSlug}`,
+			new Set(existingRows.map((row) => row.slug))
+		);
+		const id = `news-${randomUUID().slice(0, 8)}`;
+
+		await repository.upsertNewsRow({
+			id,
+			snapshotId: latestSnapshot.id,
+			sortOrder,
+			slug,
+			title: '',
+			publishedAt,
+			excerpt: '',
+			bodyHtml: '',
+			legacyUrl: '',
+			sourceFile: 'content-staging\\editorial\\public-news.xml'
+		});
+
+		return await repository.loadNewsRow(id, latestSnapshot.id);
+	});
+
+	clearPublishedContentCaches();
+
+	if (!item) {
+		throw new Error('Det gick inte att skapa nyheten.');
+	}
+
+	return item;
+}
+
+export async function deleteNewsItem(input: { newsId: string; snapshotId?: string }) {
+	await withDomainStoreClient(async (client) => {
+		const repository = createContentStudioRepository(client);
+		const latestSnapshot = input.snapshotId ?
+			await repository.findSnapshot(input.snapshotId)
+		:	await repository.findLatestSnapshot();
+
+		if (!latestSnapshot) {
+			throw new Error('Ingen snapshot finns att redigera mot.');
+		}
+
+		const item = await repository.loadNewsRow(input.newsId, latestSnapshot.id);
+		if (!item) {
+			throw new Error('Nyheten hittades inte.');
+		}
+
+		await repository.deleteEditorialDraftsForSource({
+			contentKind: 'news',
+			sourceRowId: item.sourceRowId,
+			snapshotId: latestSnapshot.id
+		});
+		await repository.deleteNewsRow({
+			newsRowId: item.sourceRowId,
+			snapshotId: latestSnapshot.id
+		});
+	});
+
+	clearPublishedContentCaches();
+}
+
+export async function createFrontendContentItem(input: {
+	sourceTitle: string;
+	snapshotId?: string;
+}) {
+	const preset = getFrontendContentPreset(input.sourceTitle);
+	if (!preset) {
+		throw new Error('Den publika sidan kan inte skapas från frontend-vyn.');
+	}
+
+	const item = await withDomainStoreClient(async (client) => {
+		const repository = createContentStudioRepository(client);
+		const latestSnapshot = input.snapshotId ?
+			await repository.findSnapshot(input.snapshotId)
+		:	await repository.findLatestSnapshot();
+
+		if (!latestSnapshot) {
+			throw new Error('Ingen snapshot finns att redigera mot.');
+		}
+
+		const existingItem = await repository.loadStandardContentRow(preset.blockId, latestSnapshot.id);
+		if (existingItem) {
+			return existingItem;
+		}
+
+		await repository.insertStandardContentRow({
+			id: preset.blockId,
+			snapshotId: latestSnapshot.id,
+			blockId: preset.blockId,
+			contentType: preset.contentType,
+			title: preset.sourceTitle,
+			rootTag: preset.rootTag,
+			sourceFile: preset.sourceFile,
+			bodyHtml: preset.initialBodyHtml
+		});
+
+		return await repository.loadStandardContentRow(preset.blockId, latestSnapshot.id);
+	});
+
+	clearPublishedContentCaches();
+
+	if (!item) {
+		throw new Error('Det gick inte att skapa den publika sidan.');
+	}
+
+	return item;
+}
+
+export async function deleteFrontendContentItem(input: { blockId: string; snapshotId?: string }) {
+	await withDomainStoreClient(async (client) => {
+		const repository = createContentStudioRepository(client);
+		const latestSnapshot = input.snapshotId ?
+			await repository.findSnapshot(input.snapshotId)
+		:	await repository.findLatestSnapshot();
+
+		if (!latestSnapshot) {
+			throw new Error('Ingen snapshot finns att redigera mot.');
+		}
+
+		const item = await repository.loadStandardContentRow(input.blockId, latestSnapshot.id);
+		if (!item) {
+			throw new Error('Den publika sidan hittades inte.');
+		}
+
+		if (!isFrontendContentTitle(item.title)) {
+			throw new Error('Endast publika frontend-sidor kan tas bort från den här vyn.');
+		}
+
+		await repository.deleteEditorialDraftsForSource({
+			contentKind: 'standard_content',
+			sourceRowId: item.sourceRowId,
+			snapshotId: latestSnapshot.id
+		});
+		await repository.deleteStandardContentRow({
+			blockRowId: item.sourceRowId,
+			snapshotId: latestSnapshot.id
+		});
+	});
+
+	clearPublishedContentCaches();
+}
+
 function buildFactEditorDraft(
 	item: ContentStudioFactRow,
 	draftState: ContentStudioDraftState | null,
@@ -2103,15 +2276,13 @@ function buildNewsEditorDraft(
 			title: payload?.title ?? item.title,
 			publishedAt: payload?.publishedAt ?? item.publishedAt,
 			excerpt: payload?.excerpt ?? item.excerpt,
-			bodyParagraphs,
-			legacyUrl: payload?.legacyUrl ?? item.legacyUrl
+			bodyParagraphs
 		}),
 		title: payload?.title ?? item.title,
 		publishedAt: payload?.publishedAt ?? item.publishedAt,
 		excerpt: payload?.excerpt ?? item.excerpt,
 		bodyParagraphs,
-		bodyHtml,
-		legacyUrl: payload?.legacyUrl ?? item.legacyUrl
+		bodyHtml
 	};
 }
 
@@ -2166,8 +2337,7 @@ function normalizeNewsDraftInput(values: ContentStudioNewsDraftInput): ContentSt
 		title: values.title.trim(),
 		publishedAt: values.publishedAt.trim(),
 		excerpt: values.excerpt.trim(),
-		bodyParagraphs: values.bodyParagraphs.map((paragraph) => paragraph.trim()).filter(Boolean),
-		legacyUrl: values.legacyUrl.trim()
+		bodyParagraphs: values.bodyParagraphs.map((paragraph) => paragraph.trim()).filter(Boolean)
 	};
 }
 
@@ -2228,10 +2398,6 @@ function validateNewsDraft(values: ContentStudioNewsDraftInput): DraftValidation
 		errors.bodyParagraphs = 'Ange minst ett stycke i brödtexten.';
 	}
 
-	if (!values.legacyUrl) {
-		errors.legacyUrl = 'Ange källänken från legacy-sajten.';
-	}
-
 	const status = Object.keys(errors).length > 0 ? 'invalid' : 'valid';
 	return { status, errors };
 }
@@ -2246,6 +2412,19 @@ function inferStandardContentValidationStatus(values: ContentStudioStandardConte
 
 function inferNewsValidationStatus(values: ContentStudioNewsDraftInput) {
 	return validateNewsDraft(values).status;
+}
+
+function makeUniquePublicSlug(baseSlug: string, usedSlugs: Set<string>) {
+	const fallbackSlug = baseSlug || `innehall-${randomUUID().slice(0, 8)}`;
+	let slug = fallbackSlug;
+	let index = 2;
+
+	while (usedSlugs.has(slug)) {
+		slug = `${fallbackSlug}-${index}`;
+		index += 1;
+	}
+
+	return slug;
 }
 
 async function buildFactLinkOptions(

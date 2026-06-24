@@ -34,7 +34,6 @@ export type PublicNewsItem = {
 	title: string;
 	excerpt: string;
 	bodyParagraphs: string[];
-	legacyUrl: string;
 };
 
 export type PublicCalculatorPage = {
@@ -752,7 +751,6 @@ export const publicNewsItems: PublicNewsItem[] = [
 			'Det här är inte ett nytt krav i sak, utan ett sätt att göra tidigare svar mer tillförlitliga över tid. Ett svar som var korrekt för flera år sedan behöver inte vara rätt idag.',
 			'När ett nytt år börjar tas tidigare svar bort för de berörda frågorna. De visas då som obesvarade och behöver gås igenom igen så att svaren stämmer med verksamheten som den ser ut nu.'
 		],
-		legacyUrl: 'https://www.miljohusesyn.nu/page/2319'
 	},
 	{
 		slug: 'miljohusesyn-ar-uppdaterad-redo-att-guida-dig-genom-2026',
@@ -766,7 +764,6 @@ export const publicNewsItems: PublicNewsItem[] = [
 			'Nya eller väsentligt omformulerade frågor markeras med "NY". För en snabb överblick finns också checklistan "Nya frågor 2026", där bara årets nya frågor visas.',
 			'Den här uppdateringen hänger ihop med införandet av årliga frågor, som gör det enklare att återkommande följa upp det som behöver ses över varje år.'
 		],
-		legacyUrl: 'https://www.miljohusesyn.nu/page/2320'
 	},
 	{
 		slug: 'starkt-losenordsskydd-i-miljohusesyn',
@@ -780,7 +777,6 @@ export const publicNewsItems: PublicNewsItem[] = [
 			'Lösenorden hanteras med modern kryptering och följer aktuell säkerhetspraxis. Om ett befintligt lösenord inte uppfyller kraven behöver användaren välja ett nytt vid inloggning.',
 			'När lösenordet har uppdaterats går det att fortsätta arbeta i Miljöhusesyn som vanligt.'
 		],
-		legacyUrl: 'https://www.miljohusesyn.nu/page/2317'
 	},
 	{
 		slug: 'nytt-vid-anmalan-av-miljofarlig-verksamhet-1-jan-2026',
@@ -794,7 +790,6 @@ export const publicNewsItems: PublicNewsItem[] = [
 			'Det har också förtydligats hur kommunen ska handlägga ärendet. Inom sex veckor ska anmälan normalt vara behandlad, även om tiden kan förlängas om det finns skäl för det.',
 			'För djurhållning över 100 djurenheter och vissa andra verksamheter har även innehållet i själva anmälan skärpts, bland annat genom hänvisning till miljöbedömningsförordningen.'
 		],
-		legacyUrl: 'https://www.miljohusesyn.nu/page/2314'
 	},
 	{
 		slug: 'inforande-av-kunskapskrav-for-pannoperatorer-fran-1-jan-2026',
@@ -807,7 +802,6 @@ export const publicNewsItems: PublicNewsItem[] = [
 			'Arbetsgivaren ansvarar nu för att pannoperatörer har rätt teoretisk och praktisk kompetens, och att kunskaperna kan styrkas med exempelvis kursintyg eller arbetsgivarintyg.',
 			'Kunskapskraven omfattar bland annat energi, risker, säkerhetsfunktioner och åtgärder vid larm eller nödsituationer. Det ska också vara dokumenterat vilka personer som har uppdraget att använda eller underhålla utrustningen.'
 		],
-		legacyUrl: 'https://www.miljohusesyn.nu/page/2311'
 	}
 ];
 

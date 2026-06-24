@@ -18,15 +18,17 @@
 </script>
 
 <main class="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
-	<section class="rounded-[2rem] border border-line bg-cream/80 p-6 shadow-xl shadow-bark/5 md:p-8">
-		<div class="mb-6 max-w-3xl">
+	<section class="max-w-4xl">
+		<div>
 			<p class="text-xs font-semibold uppercase tracking-[0.2em] text-leaf">Nyheter</p>
-			<h1 class="font-display mt-3 text-4xl font-semibold tracking-tight text-bark md:text-6xl">
+			<h2 class="font-display mt-3 text-4xl font-semibold tracking-tight text-bark md:text-6xl">
 				Aktuella uppdateringar från Miljöhusesyn.
-			</h1>
+			</h2>
 		</div>
+	</section>
 
-		<div class="divide-y divide-line">
+	<section class="mt-8">
+		<div class="divide-y divide-line border-t border-line">
 			{#each data.items as item (item.slug)}
 				<article class="py-6 md:py-8">
 					<p class="text-xs font-semibold uppercase tracking-[0.18em] text-mute">{item.date}</p>

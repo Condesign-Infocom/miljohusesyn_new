@@ -7,12 +7,12 @@
 </script>
 
 <main class="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
-	<section class="grid gap-8 rounded-[2rem] border border-line bg-cream/85 p-6 shadow-xl shadow-bark/5 md:grid-cols-[minmax(0,1fr)_22rem] md:p-8">
+	<section class="grid gap-8 md:grid-cols-[minmax(0,1fr)_22rem] md:items-start">
 		<div>
 			<p class="text-xs font-semibold uppercase tracking-[0.2em] text-leaf">Kontakt</p>
-			<h1 class="font-display mt-3 text-4xl font-semibold tracking-tight text-bark md:text-6xl">
+			<h2 class="font-display mt-3 text-4xl font-semibold tracking-tight text-bark md:text-6xl">
 				Support för användning, innehåll och inloggning.
-			</h1>
+			</h2>
 			<p class="mt-4 max-w-3xl text-base leading-7 text-ink/75 md:text-lg">
 				Har du frågor om hur du arbetar i tjänsten eller behöver hjälp att hitta rätt material kan
 				du kontakta supporten direkt.

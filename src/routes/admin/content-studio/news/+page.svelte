@@ -3,9 +3,11 @@
 </svelte:head>
 
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ContentStudioNav from '$lib/components/admin/ContentStudioNav.svelte';
 	let {
-		data
+		data,
+		form
 	}: {
 		data: {
 			latestSnapshot: {
@@ -19,18 +21,25 @@
 				publishedAt: string;
 				excerpt: string;
 				bodyHtml: string;
-				legacyUrl: string;
 				sourceFile: string;
 				latestDraft: {
 					status: string;
 				} | null;
 			}>;
 		};
+		form?: {
+			success?: string;
+			errors?: Record<string, string>;
+		};
 	} = $props();
 
 	function draftStatusLabel(status: string | null | undefined) {
 		if (status === 'published') return 'Publicerad';
 		return 'Importerad';
+	}
+
+	function displayTitle(item: { title: string }) {
+		return item.title.trim() || 'Rubrik saknas';
 	}
 </script>
 
@@ -45,15 +54,23 @@
 
 	<ContentStudioNav active="news" />
 
-	<section class="role-panel">
-		<h2>Arbetsflöde</h2>
-		<p>Redigera de publika nyheterna här. När formuläret sparas blir ändringen publicerad direkt.</p>
-	</section>
+	{#if form?.success}
+		<p class="status-message success">{form.success}</p>
+	{/if}
+	{#if form?.errors?.form}
+		<p class="status-message error">{form.errors.form}</p>
+	{/if}
 
-	<section class="migration-panel">
-		<h2>Nuvarande läge</h2>
-		<p>Nyheterna ligger nu i det uthålliga innehållslagret och kan redigeras utan att röra kodlagret.</p>
-		<p>Det här är fortfarande en första version: själva redigeringen sker i ett enkelt formulär, men innehållet är inte längre låst till <code>public-site.ts</code>.</p>
+	<section class="role-panel">
+		<div class="panel-header-row">
+			<div>
+				<h2>Arbetsflöde</h2>
+				<p>Redigera de publika nyheterna här. Du kan också lägga till nya poster eller ta bort befintliga direkt från listan.</p>
+			</div>
+			<form method="POST" action="?/create">
+				<button type="submit" class="primary-action-button">Ny nyhet</button>
+			</form>
+		</div>
 	</section>
 
 	<section class="content-panel">
@@ -62,9 +79,11 @@
 				<strong>{data.items.length}</strong>
 				<span>publika nyheter i aktuell inventering</span>
 			</div>
-			{#if data.latestSnapshot}
-				<small>{data.latestSnapshot.sourceLabel} · {data.latestSnapshot.id}</small>
-			{/if}
+			<div class="section-actions">
+				{#if data.latestSnapshot}
+					<small>{data.latestSnapshot.sourceLabel} · {data.latestSnapshot.id}</small>
+				{/if}
+			</div>
 		</div>
 
 		<div class="table-wrap">
@@ -86,15 +105,18 @@
 						{#each data.items as item (item.id)}
 							<tr>
 								<td>
-									<strong>{item.title}</strong>
+									<strong>{displayTitle(item)}</strong>
 									<small>{item.excerpt}</small>
 								</td>
 								<td>{item.publishedAt}</td>
 								<td>{draftStatusLabel(item.latestDraft?.status)}</td>
 								<td>
-									<a class="row-link" href={`/admin/content-studio/news/${item.id}`}>Redigera</a>
-									<a class="row-link secondary" href={`/nyheter/${item.slug}`} target="_blank" rel="noreferrer">Publik sida</a>
-									<a class="row-link secondary" href={item.legacyUrl} target="_blank" rel="noreferrer">Legacy-källa</a>
+									<a class="row-link" href={resolve('/admin/content-studio/news/[newsId]', { newsId: item.id })}>Redigera</a>
+									<a class="row-link secondary" href={resolve('/nyheter/[slug]', { slug: item.slug })} target="_blank" rel="noreferrer">Publik sida</a>
+									<form class="inline-form" method="POST" action="?/delete">
+										<input type="hidden" name="newsId" value={item.id} />
+										<button type="submit" class="row-link danger">Ta bort</button>
+									</form>
 								</td>
 							</tr>
 						{/each}
@@ -155,7 +177,6 @@
 
 
 	.role-panel,
-	.migration-panel,
 	.content-panel {
 		margin-top: 18px;
 		border: 1px solid #d1d7ce;
@@ -164,10 +185,34 @@
 		padding: 16px;
 	}
 
-	.role-panel p,
-	.migration-panel p {
+	.role-panel p {
 		margin: 10px 0 0;
 		line-height: 1.5;
+	}
+
+	.panel-header-row {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 16px;
+		align-items: end;
+	}
+
+	.primary-action-button {
+		border: 0;
+		border-radius: 999px;
+		background: #007a5b;
+		color: #ffffff;
+		font: inherit;
+		font-weight: 700;
+		cursor: pointer;
+		padding: 12px 18px;
+		white-space: nowrap;
+		box-shadow: 0 10px 24px rgba(0, 122, 91, 0.18);
+	}
+
+	.primary-action-button:hover {
+		background: #006b4f;
 	}
 
 	.row-link {
@@ -176,9 +221,22 @@
 		text-decoration: none;
 	}
 
-	code {
-		font-family: Consolas, 'Courier New', monospace;
-		font-size: 0.95em;
+	.status-message {
+		margin: 18px 0 0;
+		padding: 12px 14px;
+		border-radius: 6px;
+	}
+
+	.status-message.success {
+		border: 1px solid #bcd9cb;
+		background: #edf8f1;
+		color: #27543f;
+	}
+
+	.status-message.error {
+		border: 1px solid #ebccd1;
+		background: #f8e8ea;
+		color: #8c3040;
 	}
 
 	.section-bar {
@@ -188,6 +246,13 @@
 		gap: 12px;
 		align-items: end;
 		margin-bottom: 16px;
+	}
+
+	.section-actions {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		align-items: center;
 	}
 
 	.section-bar strong {
@@ -229,11 +294,35 @@
 		display: block;
 	}
 
-	td a + a {
+	td a + a,
+	td a + form {
 		margin-left: 14px;
+	}
+
+	.inline-form {
+		display: inline;
 	}
 
 	.row-link.secondary {
 		color: #5d675f;
+	}
+
+	.row-link.danger {
+		border: 0;
+		background: transparent;
+		padding: 0;
+		color: #a13a49;
+		cursor: pointer;
+	}
+
+	@media (max-width: 720px) {
+		.panel-header-row {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.primary-action-button {
+			width: 100%;
+		}
 	}
 </style>

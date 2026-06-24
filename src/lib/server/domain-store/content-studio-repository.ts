@@ -1713,6 +1713,35 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 		);
 	}
 
+	async function insertStandardContentRow(input: {
+		id: string;
+		snapshotId: string;
+		blockId: string;
+		contentType: string;
+		title: string;
+		rootTag: string;
+		sourceFile: string;
+		bodyHtml: string;
+	}) {
+		await client.run(
+			`
+				insert into standard_content_blocks (
+					id, snapshot_id, block_id, content_type, title, root_tag, source_file, body_html
+				) values (?, ?, ?, ?, ?, ?, ?, ?)
+			`,
+			[
+				input.id,
+				input.snapshotId,
+				input.blockId,
+				input.contentType,
+				input.title,
+				input.rootTag,
+				input.sourceFile,
+				input.bodyHtml
+			]
+		);
+	}
+
 	async function replaceStandardContentTargets(input: {
 		snapshotId: string;
 		blockRowId: string;
@@ -1888,6 +1917,41 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 				input.legacyUrl,
 				input.newsRowId
 			]
+		);
+	}
+
+	async function deleteEditorialDraftsForSource(input: {
+		contentKind: 'fact' | 'standard_content' | 'news';
+		sourceRowId: string;
+		snapshotId: string;
+	}) {
+		await client.run(
+			`
+				delete from editorial_drafts
+				where content_kind = ? and source_row_id = ? and snapshot_id = ?
+			`,
+			[input.contentKind, input.sourceRowId, input.snapshotId]
+		);
+	}
+
+	async function deleteStandardContentRow(input: { blockRowId: string; snapshotId: string }) {
+		await client.run(
+			`
+				delete from standard_content_blocks
+				where id = ? and snapshot_id = ?
+			`,
+			[input.blockRowId, input.snapshotId]
+		);
+	}
+
+	async function deleteNewsRow(input: { newsRowId: string; snapshotId: string }) {
+		await ensurePublicNewsSchema();
+		await client.run(
+			`
+				delete from public_news_items
+				where id = ? and snapshot_id = ?
+			`,
+			[input.newsRowId, input.snapshotId]
 		);
 	}
 
@@ -2235,12 +2299,16 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 		listFactLinkCounts,
 		listStandardContentRows,
 		loadStandardContentRow,
+		insertStandardContentRow,
 		updateStandardContentRow,
 		replaceStandardContentTargets,
 		listNewsRows,
 		loadNewsRow,
 		upsertNewsRow,
 		updateNewsRow,
+		deleteEditorialDraftsForSource,
+		deleteStandardContentRow,
+		deleteNewsRow,
 		loadChecklistTree,
 		listProfileCatalog,
 		addChecklistGroupProfile,

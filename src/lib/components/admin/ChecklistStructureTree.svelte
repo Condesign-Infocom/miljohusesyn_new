@@ -539,17 +539,6 @@
 		padding: 10px 12px 10px 16px;
 	}
 
-	.question-button::before {
-		content: '';
-		position: absolute;
-		left: -14px;
-		top: 50%;
-		width: 10px;
-		height: 1px;
-		background: #d7ddd5;
-		transform: translateY(-50%);
-	}
-
 	.question-list::before {
 		content: '';
 		position: absolute;

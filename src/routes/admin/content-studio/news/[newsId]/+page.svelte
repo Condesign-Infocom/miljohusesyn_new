@@ -18,7 +18,6 @@
 			publishedAt: string;
 			excerpt: string;
 			bodyHtml: string;
-			legacyUrl: string;
 			sourceFile: string;
 		} | null;
 		draft: {
@@ -31,7 +30,6 @@
 			publishedAt: string;
 			excerpt: string;
 			bodyHtml: string;
-			legacyUrl: string;
 		} | null;
 	};
 
@@ -44,7 +42,6 @@
 			publishedAt: string;
 			excerpt: string;
 			bodyHtml: string;
-			legacyUrl: string;
 		};
 		editor?: NewsEditorData;
 	};
@@ -57,8 +54,7 @@
 			title: editor.draft?.title ?? '',
 			publishedAt: editor.draft?.publishedAt ?? '',
 			excerpt: editor.draft?.excerpt ?? '',
-			bodyHtml: editor.draft?.bodyHtml ?? '',
-			legacyUrl: editor.draft?.legacyUrl ?? ''
+			bodyHtml: editor.draft?.bodyHtml ?? ''
 		}
 	);
 	const errors = $derived(form?.errors ?? {});
@@ -106,12 +102,6 @@
 						{#if errors.publishedAt}<small>{errors.publishedAt}</small>{/if}
 					</label>
 
-					<label>
-						<span>Legacy-källa</span>
-						<input name="legacyUrl" type="text" value={values.legacyUrl} />
-						{#if errors.legacyUrl}<small>{errors.legacyUrl}</small>{/if}
-					</label>
-
 					<label class="wide">
 						<span>Ingress</span>
 						<textarea name="excerpt" rows="4">{values.excerpt}</textarea>
@@ -144,7 +134,7 @@
 				<h2>Nuvarande läge</h2>
 				<div class="reference-card">
 					<h3>Publik sida</h3>
-					<p>{editor.item?.title}</p>
+					<p>{editor.item?.title || 'Rubrik saknas'}</p>
 					<a
 						href={resolve('/nyheter/[slug]', { slug: editor.item?.slug ?? '' })}
 						target="_blank"
@@ -158,7 +148,6 @@
 					<div><span>Status</span><strong>{statusLabel(editor.draft?.status)}</strong></div>
 					<div><span>Validering</span><strong>{editor.draft?.validationStatus ?? 'okänd'}</strong></div>
 					<div><span>Slug</span><strong>{editor.item?.slug ?? 'saknas'}</strong></div>
-					<div><span>Legacy-källa</span><strong>{editor.item?.legacyUrl ? 'Ja' : 'Saknas'}</strong></div>
 				</div>
 
 				<p class="role-note">Här kan du välja mellan att skicka ändringen för godkännande eller publicera direkt.</p>

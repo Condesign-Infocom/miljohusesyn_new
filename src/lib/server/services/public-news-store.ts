@@ -32,7 +32,7 @@ export async function ensureSeededPublicNewsRows() {
 				publishedAt: item.date,
 				excerpt: item.excerpt,
 				bodyHtml: paragraphsToPublicBodyHtml(item.bodyParagraphs),
-				legacyUrl: item.legacyUrl,
+				legacyUrl: '',
 				sourceFile: 'src/lib/public-site.ts'
 			});
 		}

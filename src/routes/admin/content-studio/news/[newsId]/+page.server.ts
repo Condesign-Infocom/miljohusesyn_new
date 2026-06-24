@@ -8,8 +8,7 @@ function readNewsValues(formData: FormData) {
 		title: String(formData.get('title') ?? '').trim(),
 		publishedAt: String(formData.get('publishedAt') ?? '').trim(),
 		excerpt: String(formData.get('excerpt') ?? '').trim(),
-		bodyHtml: String(formData.get('bodyHtml') ?? '').trim(),
-		legacyUrl: String(formData.get('legacyUrl') ?? '').trim()
+		bodyHtml: String(formData.get('bodyHtml') ?? '').trim()
 	};
 }
 
@@ -18,8 +17,7 @@ function toDraftInput(values: ReturnType<typeof readNewsValues>) {
 		title: values.title,
 		publishedAt: values.publishedAt,
 		excerpt: values.excerpt,
-		bodyParagraphs: extractPublicParagraphs(values.bodyHtml),
-		legacyUrl: values.legacyUrl
+		bodyParagraphs: extractPublicParagraphs(values.bodyHtml)
 	};
 }
 

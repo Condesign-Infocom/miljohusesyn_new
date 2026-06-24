@@ -15,10 +15,23 @@ type NewsDraftPayload = {
 	excerpt?: string;
 	bodyHtml?: string;
 	bodyParagraphs?: string[];
-	legacyUrl?: string;
 };
 
 const publishedPublicNewsCache = createTtlCache<PublicNewsItem[]>(60 * 1000);
+const swedishMonthNumbers = new Map([
+	['januari', 0],
+	['februari', 1],
+	['mars', 2],
+	['april', 3],
+	['maj', 4],
+	['juni', 5],
+	['juli', 6],
+	['augusti', 7],
+	['september', 8],
+	['oktober', 9],
+	['november', 10],
+	['december', 11]
+]);
 
 export function clearPublishedPublicNewsCache() {
 	publishedPublicNewsCache.clear();
@@ -34,6 +47,36 @@ function parseDraftPayload(payloadJson?: string | null) {
 	} catch {
 		return null;
 	}
+}
+
+function parsePublishedNewsDate(value: string) {
+	const normalizedValue = value.trim();
+	const timestamp = Date.parse(normalizedValue);
+
+	if (!Number.isNaN(timestamp)) {
+		return timestamp;
+	}
+
+	const match = normalizedValue
+		.toLowerCase()
+		.match(/^(\d{1,2})\s+([a-zåäö]+)\s+(\d{4})(?:\s+\d{1,2}:\d{2})?$/);
+
+	if (!match) {
+		return Number.NEGATIVE_INFINITY;
+	}
+
+	const [, dayText, monthText, yearText] = match;
+	const month = swedishMonthNumbers.get(monthText);
+
+	if (month === undefined) {
+		return Number.NEGATIVE_INFINITY;
+	}
+
+	return Date.UTC(Number.parseInt(yearText, 10), month, Number.parseInt(dayText, 10));
+}
+
+function sortPublicNewsNewestFirst(items: PublicNewsItem[]) {
+	return [...items].sort((left, right) => parsePublishedNewsDate(right.date) - parsePublishedNewsDate(left.date));
 }
 
 async function mapPublishedNewsRows(): Promise<PublicNewsItem[]> {
@@ -64,12 +107,11 @@ async function mapPublishedNewsRows(): Promise<PublicNewsItem[]> {
 				date: payload?.publishedAt ?? row.publishedAt,
 				title: payload?.title ?? row.title,
 				excerpt: payload?.excerpt ?? row.excerpt,
-				bodyParagraphs: extractPublicParagraphs(bodyHtml),
-				legacyUrl: payload?.legacyUrl ?? row.legacyUrl
+				bodyParagraphs: extractPublicParagraphs(bodyHtml)
 			});
 		}
 
-		return items;
+		return sortPublicNewsNewestFirst(items);
 	});
 }
 
@@ -104,13 +146,13 @@ export async function listPublishedPublicNews() {
 	return await publishedPublicNewsCache.get(async () => {
 		try {
 			const items = await mapPublishedNewsRows();
-			return items.length > 0 ? items : publicNewsItems;
+			return items.length > 0 ? items : sortPublicNewsNewestFirst(publicNewsItems);
 		} catch (error) {
 			if (!isRecoverablePublicNewsFailure(error)) {
 				throw error;
 			}
 
-			return publicNewsItems;
+			return sortPublicNewsNewestFirst(publicNewsItems);
 		}
 	});
 }
