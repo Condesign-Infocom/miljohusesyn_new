@@ -307,7 +307,7 @@ test('admin can edit a checklist question and keep the selection', async ({ page
 	await page.locator('.toggle-button').first().click();
 	await page.locator('.question-list .question-button').nth(0).click();
 	await expect(page.getByRole('button', { name: /Nollställ fråga/ })).toBeVisible();
-	await expect(page.getByRole('button', { name: /Arkivera fråga/ })).toBeVisible();
+	await expect(page.getByRole('button', { name: /Ta bort fråga/ })).toBeVisible();
 	await page.getByLabel('Frågetext').fill('Updated from browser test');
 	await page.getByRole('checkbox', { name: 'Rekommenderad' }).uncheck();
 	await page.getByRole('button', { name: 'Spara fråga' }).click();

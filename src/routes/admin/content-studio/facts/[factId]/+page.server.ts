@@ -23,6 +23,10 @@ function readFactValues(formData: FormData) {
 	};
 }
 
+function readPublishStatus(formData: FormData) {
+	return String(formData.get('intent') ?? '') === 'publish' ? 'published' : 'in_review';
+}
+
 export const load = async ({ locals, params, url }) => {
 	const user = requireContentStudioUser(locals, url);
 	const result = await loadFactEditor(params.factId, user.id);
@@ -40,12 +44,14 @@ export const load = async ({ locals, params, url }) => {
 export const actions = {
 	save: async ({ locals, params, request, url }) => {
 		const user = requireContentStudioUser(locals, url);
-		const values = readFactValues(await request.formData());
+		const formData = await request.formData();
+		const values = readFactValues(formData);
+		const status = readPublishStatus(formData);
 		const result = await saveFactDraft({
 			factId: params.factId,
 			userId: user.id,
 			values,
-			status: 'published'
+			status
 		});
 
 		if (!result.item || !result.draft) {
@@ -65,11 +71,16 @@ export const actions = {
 			});
 		}
 
-		await materializePublishedSnapshot(result.latestSnapshot?.id);
+		if (status === 'published') {
+			await materializePublishedSnapshot(result.latestSnapshot?.id);
+		}
 
 		return {
 			action: 'save',
-			success: 'Faktan sparades och publicerades direkt.',
+			success:
+				status === 'published' ?
+					'Faktan sparades och publicerades direkt.'
+				:	'Faktan skickades för godkännande.',
 			editor: result
 		};
 	}

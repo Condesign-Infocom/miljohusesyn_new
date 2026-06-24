@@ -1,10 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { requireContentStudioUser } from '$lib/server/auth';
 import {
-	archiveChecklistGroupDraft,
-	archiveChecklistQuestionDraft,
 	createChecklistGroupDraft,
 	createChecklistQuestionDraft,
+	deleteChecklistGroupDraft,
+	deleteChecklistQuestionDraft,
 	createChecklistWorkspaceFactFromNode,
 	linkChecklistWorkspaceFact,
 	loadChecklistEditor,
@@ -98,6 +98,10 @@ function readCreateFactValues(formData: FormData) {
 		title: String(formData.get('title') ?? '').trim(),
 		bodyHtml: String(formData.get('bodyHtml') ?? '').trim()
 	};
+}
+
+function readPublishStatus(formData: FormData) {
+	return String(formData.get('intent') ?? '') === 'publish' ? 'published' : 'in_review';
 }
 
 function hasBodyText(bodyHtml: string) {
@@ -315,15 +319,25 @@ export const actions = {
 			checklistId: params.checklistId,
 			nodeId,
 			userId: user.id,
-			values
+			values,
+			status: readPublishStatus(formData)
 		});
-		await materializePublishedSnapshot();
 
 		const factId = created.factWorkspace?.selectedFact?.factRowId;
+		const status = readPublishStatus(formData);
+
+		if (status === 'published') {
+			await materializePublishedSnapshot();
+		}
 
 		redirect(
 			303,
-			buildWorkspaceUrl(params.checklistId, nodeId, factId, 'Ny fakta skapades.')
+			buildWorkspaceUrl(
+				params.checklistId,
+				nodeId,
+				factId,
+				status === 'published' ? 'Ny fakta skapades och publicerades.' : 'Ny fakta skapades och skickades för godkännande.'
+			)
 		);
 	},
 	saveFactInline: async ({ locals, params, request, url }) => {
@@ -342,7 +356,7 @@ export const actions = {
 			factId,
 			userId: user.id,
 			values: readInlineFactValues(formData),
-			status: 'published'
+			status: readPublishStatus(formData)
 		});
 
 		if (Object.keys(result.factValidation?.errors ?? {}).length > 0) {
@@ -354,9 +368,20 @@ export const actions = {
 			});
 		}
 
-		await materializePublishedSnapshot();
+		const status = readPublishStatus(formData);
+		if (status === 'published') {
+			await materializePublishedSnapshot();
+		}
 
-		redirect(303, buildWorkspaceUrl(params.checklistId, questionId, factId, 'Faktan sparades och publicerades.'));
+		redirect(
+			303,
+			buildWorkspaceUrl(
+				params.checklistId,
+				questionId,
+				factId,
+				status === 'published' ? 'Faktan sparades och publicerades.' : 'Faktan skickades för godkännande.'
+			)
+		);
 	},
 	moveGroup: async ({ locals, params, request, url }) => {
 		const user = requireContentStudioUser(locals, url);
@@ -448,7 +473,7 @@ export const actions = {
 			buildEditorUrl(params.checklistId, reordered.selectedNodeId, 'Frågeordningen uppdaterades.')
 		);
 	},
-	archiveGroup: async ({ locals, params, request, url }) => {
+	deleteGroup: async ({ locals, params, request, url }) => {
 		const user = requireContentStudioUser(locals, url);
 		const formData = await request.formData();
 		const groupId = String(formData.get('groupId') ?? '').trim();
@@ -457,16 +482,16 @@ export const actions = {
 			return fail(400, { errors: { form: 'Gruppen saknas.' } });
 		}
 
-		await archiveChecklistGroupDraft({
+		await deleteChecklistGroupDraft({
 			checklistId: params.checklistId,
 			groupId,
 			userId: user.id
 		});
 		await materializePublishedSnapshot();
 
-		redirect(303, buildEditorUrl(params.checklistId, undefined, 'Gruppen arkiverades.'));
+		redirect(303, buildEditorUrl(params.checklistId, undefined, 'Gruppen togs bort.'));
 	},
-	archiveQuestion: async ({ locals, params, request, url }) => {
+	deleteQuestion: async ({ locals, params, request, url }) => {
 		const user = requireContentStudioUser(locals, url);
 		const formData = await request.formData();
 		const questionId = String(formData.get('questionId') ?? '').trim();
@@ -475,13 +500,13 @@ export const actions = {
 			return fail(400, { errors: { form: 'Frågan saknas.' } });
 		}
 
-		const archived = await archiveChecklistQuestionDraft({
+		const deleted = await deleteChecklistQuestionDraft({
 			checklistId: params.checklistId,
 			questionId,
 			userId: user.id
 		});
 		await materializePublishedSnapshot();
 
-		redirect(303, buildEditorUrl(params.checklistId, archived.groupId, 'Frågan arkiverades.'));
+		redirect(303, buildEditorUrl(params.checklistId, deleted.groupId, 'Frågan togs bort.'));
 	}
 };

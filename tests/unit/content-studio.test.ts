@@ -4,8 +4,9 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	archiveChecklistQuestionDraft,
 	createChecklistQuestionDraft,
+	deleteChecklistGroupDraft,
+	deleteChecklistQuestionDraft,
 	loadContentStudioChecklists,
 	loadContentStudioFact,
 	loadContentStudioChecklistTree,
@@ -902,14 +903,14 @@ describe('content studio durable-store access', () => {
 		]);
 	});
 
-	it('archives a checklist question draft and removes it from the live tree', async () => {
-		const archived = await archiveChecklistQuestionDraft({
+	it('deletes a checklist question draft and removes its fact links from the live tree', async () => {
+		const deleted = await deleteChecklistQuestionDraft({
 			checklistId: 'checklist-default',
 			questionId: 'snapshot-latest:checklist:1:group:1:question:2',
 			userId: 77
 		});
 
-		expect(archived.groupId).toBe('snapshot-latest:checklist:1:group:1');
+		expect(deleted.groupId).toBe('snapshot-latest:checklist:1:group:1');
 
 		const tree = await loadContentStudioChecklistTree('checklist-default');
 		expect(tree.tree?.groups[0]?.questions.map((question) => question.id)).toEqual([
@@ -917,17 +918,55 @@ describe('content studio durable-store access', () => {
 		]);
 
 		const sqlite = new Database(domainStorePath, { readonly: true });
-		const archivedRow = sqlite
-			.prepare('select id, question_text as questionText from archived_questions where id = ?')
-			.get('snapshot-latest:checklist:1:group:1:question:2') as
-			| { id: string; questionText: string }
-			| undefined;
+		const deletedLinks = sqlite
+			.prepare('select node_id as nodeId from fact_links where node_id = ?')
+			.all('G1-2') as Array<{ nodeId: string }>;
 		sqlite.close();
 
-		expect(archivedRow).toEqual({
-			id: 'snapshot-latest:checklist:1:group:1:question:2',
-			questionText: 'Are feed logs retained?'
+		expect(deletedLinks).toEqual([]);
+	});
+
+	it('deletes an empty checklist group and removes any linked fact rows for the group node', async () => {
+		const sqlite = new Database(domainStorePath);
+		sqlite.prepare('delete from questions where group_row_id = ?').run('snapshot-latest:checklist:1:group:2');
+		sqlite.prepare('insert into fact_links values (?, ?, ?, ?, ?, ?)').run(
+			'snapshot-latest:fact-link:group-delete',
+			'snapshot-latest',
+			'snapshot-latest:fact:2',
+			'G2',
+			'editorial_manual',
+			'linked'
+		);
+		sqlite.close();
+
+		const deleted = await deleteChecklistGroupDraft({
+			checklistId: 'checklist-default',
+			groupId: 'snapshot-latest:checklist:1:group:2',
+			userId: 77
 		});
+
+		expect(deleted.checklistId).toBe('snapshot-latest:checklist:1:group:2');
+
+		const tree = await loadContentStudioChecklistTree('checklist-default');
+		expect(tree.tree?.groups.map((group) => group.id)).toEqual(['snapshot-latest:checklist:1:group:1']);
+
+		const reloadedSqlite = new Database(domainStorePath, { readonly: true });
+		const deletedLinks = reloadedSqlite
+			.prepare('select node_id as nodeId from fact_links where node_id = ?')
+			.all('G2') as Array<{ nodeId: string }>;
+		reloadedSqlite.close();
+
+		expect(deletedLinks).toEqual([]);
+	});
+
+	it('rejects deleting a checklist group that still contains questions', async () => {
+		await expect(
+			deleteChecklistGroupDraft({
+				checklistId: 'checklist-default',
+				groupId: 'snapshot-latest:checklist:1:group:1',
+				userId: 77
+			})
+		).rejects.toThrow('Gruppen kan inte tas bort eftersom den fortfarande innehåller frågor.');
 	});
 
 	it('saves checklist group title and intro text changes', async () => {

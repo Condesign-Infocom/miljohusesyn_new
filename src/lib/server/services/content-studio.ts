@@ -322,6 +322,9 @@ type DraftValidation = {
 	errors: Record<string, string>;
 };
 
+type EditorialDraftStatus = 'draft' | 'in_review' | 'published';
+type ContentStudioRepository = ReturnType<typeof createContentStudioRepository>;
+
 type ContentStudioChecklistDiscoveryRow =
 	Awaited<ReturnType<ReturnType<typeof createContentStudioRepository>['listChecklistRows']>>[number] & {
 		missingFactLinkCount: number;
@@ -877,14 +880,73 @@ export async function approvePublishingReview(input: {
 			throw new Error(publishDecision.reason);
 		}
 
+		const latestRevision = await repository.loadLatestDraftRevision(queueItem.draftId);
+		if (!latestRevision) {
+			throw new Error('Det finns ingen revisionsdata att publicera.');
+		}
+
+		if (queueItem.contentKind === 'fact') {
+			const factRow = await repository.loadFactRow(queueItem.sourceRowId, latestSnapshot?.id);
+			const payload = parseJsonPayload<FactDraftPayload>(latestRevision.payloadJson);
+			const values = normalizeFactDraftInput({
+				title: payload?.title ?? factRow?.title ?? '',
+				bodyHtml: payload?.bodyHtml ?? factRow?.bodyHtml ?? '',
+				nodeIds:
+					payload?.nodeIds?.map((nodeId) => nodeId.trim()).filter(Boolean) ??
+					(factRow?.nodeId ? [factRow.nodeId] : [])
+			});
+			await applyFactDraftRevision({
+				repository,
+				factId: queueItem.sourceRowId,
+				snapshotId: queueItem.snapshotId,
+				values
+			});
+		} else if (queueItem.contentKind === 'standard_content') {
+			const item = await repository.loadStandardContentRow(queueItem.sourceRowId, queueItem.snapshotId);
+			const payload = parseJsonPayload<StandardContentDraftPayload>(latestRevision.payloadJson);
+			const values = normalizeStandardContentDraftInput({
+				title: payload?.title ?? item?.title ?? '',
+				bodyHtml: payload?.bodyHtml ?? item?.bodyHtml ?? '',
+				targets: payload?.targets ?? item?.targets ?? []
+			});
+			await applyStandardContentDraftRevision({
+				repository,
+				blockId: queueItem.sourceRowId,
+				snapshotId: queueItem.snapshotId,
+				values
+			});
+		} else {
+			const item = await repository.loadNewsRow(queueItem.sourceRowId, queueItem.snapshotId);
+			const payload = parseJsonPayload<NewsDraftPayload>(latestRevision.payloadJson);
+			const values = normalizeNewsDraftInput({
+				title: payload?.title ?? item?.title ?? '',
+				publishedAt: payload?.publishedAt ?? item?.publishedAt ?? '',
+				excerpt: payload?.excerpt ?? item?.excerpt ?? '',
+				bodyParagraphs:
+					payload?.bodyParagraphs ??
+					extractPublicParagraphs(payload?.bodyHtml ?? item?.bodyHtml ?? ''),
+				legacyUrl: payload?.legacyUrl ?? item?.legacyUrl ?? ''
+			});
+			await applyNewsDraftRevision({
+				repository,
+				newsId: queueItem.sourceRowId,
+				snapshotId: queueItem.snapshotId,
+				values
+			});
+		}
+
 		await repository.approveReviewRequest({
 			reviewRequestId: input.reviewRequestId,
 			draftId: input.draftId,
 			userId: input.userId,
 			now
 		});
+		await finalizeEditorialPublication({
+			contentKind: queueItem.contentKind,
+			snapshotId: queueItem.snapshotId
+		});
 
-		return await loadPublishingQueue(input.snapshotId);
+		return await loadPublishingQueue(queueItem.snapshotId);
 	});
 
 	return queue;
@@ -1189,33 +1251,42 @@ export async function reorderChecklistQuestionsDraft(input: {
 	});
 }
 
-export async function archiveChecklistGroupDraft(input: {
+export async function deleteChecklistGroupDraft(input: {
 	checklistId: string;
 	groupId: string;
 	userId: number;
 	snapshotId?: string;
 }) {
-	void input.checklistId;
 	void input.userId;
 	void input.snapshotId;
 
 	return await withDomainStoreClient(async (client) => {
 		const repository = createContentStudioRepository(client);
 		await repository.ensureChecklistMutationSchema();
-		const archived = await repository.archiveChecklistGroup({
-			groupRowId: input.groupId,
-			archivedAt: new Date().toISOString()
-		});
+		const tree = await repository.loadChecklistTree(input.checklistId, input.snapshotId);
+		const group = tree?.groups.find((item) => item.id === input.groupId || item.sourceRowId === input.groupId);
 
-		if (!archived) {
+		if (!group) {
 			throw new Error('Gruppen hittades inte.');
 		}
 
-		return { checklistId: archived.checklistRowId };
+		if (group.questions.length > 0) {
+			throw new Error('Gruppen kan inte tas bort eftersom den fortfarande innehåller frågor.');
+		}
+
+		const deleted = await repository.deleteChecklistGroup({
+			groupRowId: group.sourceRowId
+		});
+
+		if (!deleted) {
+			throw new Error('Gruppen hittades inte.');
+		}
+
+		return { checklistId: group.id };
 	});
 }
 
-export async function archiveChecklistQuestionDraft(input: {
+export async function deleteChecklistQuestionDraft(input: {
 	checklistId: string;
 	questionId: string;
 	userId: number;
@@ -1228,16 +1299,15 @@ export async function archiveChecklistQuestionDraft(input: {
 	return await withDomainStoreClient(async (client) => {
 		const repository = createContentStudioRepository(client);
 		await repository.ensureChecklistMutationSchema();
-		const archived = await repository.archiveChecklistQuestion({
-			questionRowId: input.questionId,
-			archivedAt: new Date().toISOString()
+		const deleted = await repository.deleteChecklistQuestion({
+			questionRowId: input.questionId
 		});
 
-		if (!archived) {
+		if (!deleted) {
 			throw new Error('Frågan hittades inte.');
 		}
 
-		return { groupId: archived.groupRowId };
+		return { groupId: deleted.groupRowId };
 	});
 }
 
@@ -1328,6 +1398,165 @@ export async function resetChecklistQuestionAnswers(input: {
 	return { questionId: questionContext.question.id, resetCount };
 }
 
+function resolveEditorialDraftStatus(status?: EditorialDraftStatus): EditorialDraftStatus {
+	return status === 'draft' || status === 'in_review' || status === 'published' ? status : 'published';
+}
+
+async function upsertEditorialWorkflow(input: {
+	repository: ContentStudioRepository;
+	contentKind: 'fact' | 'standard_content' | 'news';
+	sourceRowId: string;
+	snapshotId: string;
+	userId: number;
+	status: EditorialDraftStatus;
+	payloadJson: string;
+	validationStatus: string;
+}) {
+	const existingDraft = await input.repository.findLatestDraftForSource(
+		input.contentKind,
+		input.sourceRowId,
+		input.snapshotId
+	);
+	const draftId = existingDraft?.id ?? randomUUID();
+	const now = new Date().toISOString();
+
+	if (!existingDraft) {
+		await input.repository.createDraft({
+			id: draftId,
+			snapshotId: input.snapshotId,
+			contentKind: input.contentKind,
+			sourceRowId: input.sourceRowId,
+			status: input.status,
+			userId: input.userId,
+			now
+		});
+	} else {
+		await input.repository.updateDraftStatus({
+			draftId,
+			status: input.status,
+			userId: input.userId,
+			now
+		});
+	}
+
+	const revisionNumber = (existingDraft?.latestRevisionNumber ?? 0) + 1;
+	await input.repository.appendDraftRevision({
+		id: randomUUID(),
+		draftId,
+		revisionNumber,
+		payloadJson: input.payloadJson,
+		validationStatus: input.validationStatus,
+		userId: input.userId,
+		now
+	});
+
+	if (input.status === 'published') {
+		await input.repository.updateReviewRequestsForDraft({
+			draftId,
+			fromStatus: 'pending',
+			toStatus: 'superseded'
+		});
+	} else if (
+		input.status === 'in_review' &&
+		existingDraft?.reviewRequest?.status !== 'pending'
+	) {
+		await input.repository.createReviewRequest({
+			id: randomUUID(),
+			draftId,
+			userId: input.userId,
+			now,
+			status: 'pending'
+		});
+	}
+
+	return { draftId, existingDraft };
+}
+
+async function applyFactDraftRevision(input: {
+	repository: ContentStudioRepository;
+	factId: string;
+	snapshotId: string;
+	values: ContentStudioFactDraftInput;
+}) {
+	const item = await input.repository.loadFactRow(input.factId, input.snapshotId);
+	if (!item) {
+		throw new Error('Faktan hittades inte.');
+	}
+
+	await input.repository.updateFactRow({
+		factRowId: item.sourceRowId,
+		title: input.values.title,
+		bodyHtml: input.values.bodyHtml
+	});
+	await input.repository.replaceFactLinks({
+		snapshotId: input.snapshotId,
+		factRowId: item.sourceRowId,
+		nodeIds: input.values.nodeIds
+	});
+
+	return item;
+}
+
+async function applyStandardContentDraftRevision(input: {
+	repository: ContentStudioRepository;
+	blockId: string;
+	snapshotId: string;
+	values: ContentStudioStandardContentDraftInput;
+}) {
+	const item = await input.repository.loadStandardContentRow(input.blockId, input.snapshotId);
+	if (!item) {
+		throw new Error('Standardtexten hittades inte.');
+	}
+
+	await input.repository.updateStandardContentRow({
+		blockRowId: item.sourceRowId,
+		title: input.values.title,
+		bodyHtml: input.values.bodyHtml
+	});
+	await input.repository.replaceStandardContentTargets({
+		snapshotId: input.snapshotId,
+		blockRowId: item.sourceRowId,
+		targets: input.values.targets
+	});
+
+	return item;
+}
+
+async function applyNewsDraftRevision(input: {
+	repository: ContentStudioRepository;
+	newsId: string;
+	snapshotId: string;
+	values: ContentStudioNewsDraftInput;
+}) {
+	const item = await input.repository.loadNewsRow(input.newsId, input.snapshotId);
+	if (!item) {
+		throw new Error('Nyheten hittades inte.');
+	}
+
+	await input.repository.updateNewsRow({
+		newsRowId: item.sourceRowId,
+		title: input.values.title,
+		publishedAt: input.values.publishedAt,
+		excerpt: input.values.excerpt,
+		bodyHtml: paragraphsToPublicBodyHtml(input.values.bodyParagraphs),
+		legacyUrl: input.values.legacyUrl
+	});
+
+	return item;
+}
+
+async function finalizeEditorialPublication(input: {
+	contentKind: 'fact' | 'standard_content' | 'news';
+	snapshotId?: string;
+}) {
+	if (input.contentKind === 'fact' && input.snapshotId) {
+		await materializePublishedSnapshot(input.snapshotId);
+		return;
+	}
+
+	clearPublishedContentCaches();
+}
+
 export async function saveFactDraft(input: {
 	factId: string;
 	userId: number;
@@ -1337,7 +1566,7 @@ export async function saveFactDraft(input: {
 }) {
 	const normalizedValues = normalizeFactDraftInput(input.values);
 	const validation = validateFactDraft(normalizedValues);
-	const nextStatus = 'published';
+	const nextStatus = resolveEditorialDraftStatus(input.status);
 
 	const result = await withDomainStoreClient(async (client) => {
 		const repository = createContentStudioRepository(client);
@@ -1359,55 +1588,30 @@ export async function saveFactDraft(input: {
 			return await loadFactEditor(input.factId, input.userId, latestSnapshot.id);
 		}
 
-		await repository.updateFactRow({
-			factRowId: item.sourceRowId,
-			title: normalizedValues.title,
-			bodyHtml: normalizedValues.bodyHtml
-		});
-		await repository.replaceFactLinks({
-			snapshotId: latestSnapshot.id,
-			factRowId: item.sourceRowId,
-			nodeIds: normalizedValues.nodeIds
-		});
-
-		const existingDraft = await repository.findLatestDraftForSource('fact', item.sourceRowId, latestSnapshot.id);
-		const draftId = existingDraft?.id ?? randomUUID();
-		const now = new Date().toISOString();
-
-		if (!existingDraft) {
-			await repository.createDraft({
-				id: draftId,
+		if (nextStatus === 'published') {
+			await applyFactDraftRevision({
+				repository,
+				factId: input.factId,
 				snapshotId: latestSnapshot.id,
-				contentKind: 'fact',
-				sourceRowId: item.sourceRowId,
-				status: nextStatus,
-				userId: input.userId,
-				now
-			});
-		} else {
-			await repository.updateDraftStatus({
-				draftId,
-				status: nextStatus,
-				userId: input.userId,
-				now
+				values: normalizedValues
 			});
 		}
 
-		const revisionNumber = (existingDraft?.latestRevisionNumber ?? 0) + 1;
-		await repository.appendDraftRevision({
-			id: randomUUID(),
-			draftId,
-			revisionNumber,
-			payloadJson: JSON.stringify(normalizedValues),
-			validationStatus: validation.status,
+		await upsertEditorialWorkflow({
+			repository,
+			contentKind: 'fact',
+			sourceRowId: item.sourceRowId,
+			snapshotId: latestSnapshot.id,
 			userId: input.userId,
-			now
+			status: nextStatus,
+			payloadJson: JSON.stringify(normalizedValues),
+			validationStatus: validation.status
 		});
 
 		return await loadFactEditor(input.factId, input.userId, latestSnapshot.id);
 	});
 
-	if (Object.keys(validation.errors).length === 0) {
+	if (Object.keys(validation.errors).length === 0 && nextStatus === 'published') {
 		clearPublishedContentCaches();
 	}
 
@@ -1452,6 +1656,7 @@ export async function createChecklistWorkspaceFactFromNode(input: {
 	nodeId: string;
 	userId: number;
 	snapshotId?: string;
+	status?: 'draft' | 'in_review' | 'published';
 	values?: {
 		title: string;
 		bodyHtml: string;
@@ -1524,7 +1729,7 @@ export async function createChecklistWorkspaceFactFromNode(input: {
 			nodeIds: createdFact.nodeIds
 		},
 		snapshotId: input.snapshotId,
-		status: 'draft'
+		status: input.status ?? 'draft'
 	});
 
 	return await loadChecklistEditorWorkspace(
@@ -1540,6 +1745,7 @@ export async function createChecklistWorkspaceFactFromQuestion(input: {
 	questionId: string;
 	userId: number;
 	snapshotId?: string;
+	status?: 'draft' | 'in_review' | 'published';
 	values?: {
 		title: string;
 		bodyHtml: string;
@@ -1550,6 +1756,7 @@ export async function createChecklistWorkspaceFactFromQuestion(input: {
 		nodeId: input.questionId,
 		userId: input.userId,
 		snapshotId: input.snapshotId,
+		status: input.status,
 		values: input.values
 	});
 }
@@ -1699,7 +1906,7 @@ export async function saveStandardContentDraft(input: {
 }) {
 	const normalizedValues = normalizeStandardContentDraftInput(input.values);
 	const validation = validateStandardContentDraft(normalizedValues);
-	const nextStatus = 'published';
+	const nextStatus = resolveEditorialDraftStatus(input.status);
 
 	const result = await withDomainStoreClient(async (client) => {
 		const repository = createContentStudioRepository(client);
@@ -1721,59 +1928,30 @@ export async function saveStandardContentDraft(input: {
 			return await loadStandardContentEditor(input.blockId, input.userId, latestSnapshot.id);
 		}
 
-		await repository.updateStandardContentRow({
-			blockRowId: item.sourceRowId,
-			title: normalizedValues.title,
-			bodyHtml: normalizedValues.bodyHtml
-		});
-		await repository.replaceStandardContentTargets({
-			snapshotId: latestSnapshot.id,
-			blockRowId: item.sourceRowId,
-			targets: normalizedValues.targets
-		});
-
-		const existingDraft = await repository.findLatestDraftForSource(
-			'standard_content',
-			item.sourceRowId,
-			latestSnapshot.id
-		);
-		const draftId = existingDraft?.id ?? randomUUID();
-		const now = new Date().toISOString();
-
-		if (!existingDraft) {
-			await repository.createDraft({
-				id: draftId,
+		if (nextStatus === 'published') {
+			await applyStandardContentDraftRevision({
+				repository,
+				blockId: input.blockId,
 				snapshotId: latestSnapshot.id,
-				contentKind: 'standard_content',
-				sourceRowId: item.sourceRowId,
-				status: nextStatus,
-				userId: input.userId,
-				now
-			});
-		} else {
-			await repository.updateDraftStatus({
-				draftId,
-				status: nextStatus,
-				userId: input.userId,
-				now
+				values: normalizedValues
 			});
 		}
 
-		const revisionNumber = (existingDraft?.latestRevisionNumber ?? 0) + 1;
-		await repository.appendDraftRevision({
-			id: randomUUID(),
-			draftId,
-			revisionNumber,
-			payloadJson: JSON.stringify(normalizedValues),
-			validationStatus: validation.status,
+		await upsertEditorialWorkflow({
+			repository,
+			contentKind: 'standard_content',
+			sourceRowId: item.sourceRowId,
+			snapshotId: latestSnapshot.id,
 			userId: input.userId,
-			now
+			status: nextStatus,
+			payloadJson: JSON.stringify(normalizedValues),
+			validationStatus: validation.status
 		});
 
 		return await loadStandardContentEditor(input.blockId, input.userId, latestSnapshot.id);
 	});
 
-	if (Object.keys(validation.errors).length === 0) {
+	if (Object.keys(validation.errors).length === 0 && nextStatus === 'published') {
 		clearPublishedContentCaches();
 	}
 
@@ -1792,7 +1970,7 @@ export async function saveNewsDraft(input: {
 }) {
 	const normalizedValues = normalizeNewsDraftInput(input.values);
 	const validation = validateNewsDraft(normalizedValues);
-	const nextStatus = 'published';
+	const nextStatus = resolveEditorialDraftStatus(input.status);
 	const payload = {
 		...normalizedValues,
 		bodyHtml: paragraphsToPublicBodyHtml(normalizedValues.bodyParagraphs)
@@ -1818,53 +1996,30 @@ export async function saveNewsDraft(input: {
 			return await loadNewsEditor(input.newsId, input.userId, latestSnapshot.id);
 		}
 
-		await repository.updateNewsRow({
-			newsRowId: item.sourceRowId,
-			title: normalizedValues.title,
-			publishedAt: normalizedValues.publishedAt,
-			excerpt: normalizedValues.excerpt,
-			bodyHtml: payload.bodyHtml,
-			legacyUrl: normalizedValues.legacyUrl
-		});
-
-		const existingDraft = await repository.findLatestDraftForSource('news', item.sourceRowId, latestSnapshot.id);
-		const draftId = existingDraft?.id ?? randomUUID();
-		const now = new Date().toISOString();
-
-		if (!existingDraft) {
-			await repository.createDraft({
-				id: draftId,
+		if (nextStatus === 'published') {
+			await applyNewsDraftRevision({
+				repository,
+				newsId: input.newsId,
 				snapshotId: latestSnapshot.id,
-				contentKind: 'news',
-				sourceRowId: item.sourceRowId,
-				status: nextStatus,
-				userId: input.userId,
-				now
-			});
-		} else {
-			await repository.updateDraftStatus({
-				draftId,
-				status: nextStatus,
-				userId: input.userId,
-				now
+				values: normalizedValues
 			});
 		}
 
-		const revisionNumber = (existingDraft?.latestRevisionNumber ?? 0) + 1;
-		await repository.appendDraftRevision({
-			id: randomUUID(),
-			draftId,
-			revisionNumber,
-			payloadJson: JSON.stringify(payload),
-			validationStatus: validation.status,
+		await upsertEditorialWorkflow({
+			repository,
+			contentKind: 'news',
+			sourceRowId: item.sourceRowId,
+			snapshotId: latestSnapshot.id,
 			userId: input.userId,
-			now
+			status: nextStatus,
+			payloadJson: JSON.stringify(payload),
+			validationStatus: validation.status
 		});
 
 		return await loadNewsEditor(input.newsId, input.userId, latestSnapshot.id);
 	});
 
-	if (Object.keys(validation.errors).length === 0) {
+	if (Object.keys(validation.errors).length === 0 && nextStatus === 'published') {
 		clearPublishedContentCaches();
 	}
 

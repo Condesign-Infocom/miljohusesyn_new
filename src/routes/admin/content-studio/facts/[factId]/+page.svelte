@@ -3,6 +3,7 @@
 </svelte:head>
 
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ContentStudioNav from '$lib/components/admin/ContentStudioNav.svelte';
 	import FactEditorForm from '$lib/components/admin/FactEditorForm.svelte';
 
@@ -66,6 +67,8 @@
 
 	function statusLabel(status: string | null | undefined) {
 		if (status === 'published') return 'Publicerad';
+		if (status === 'in_review') return 'Väntar på godkännande';
+		if (status === 'draft') return 'Utkast';
 		return 'Inte ändrad';
 	}
 </script>
@@ -75,12 +78,12 @@
 		<div>
 			<p class="eyebrow">Innehållsredaktion</p>
 			<h1>Redigera fakta</h1>
-			<p class="lead">Redigera importerad fakta. Giltiga ändringar sparas och publiceras direkt.</p>
+			<p class="lead">Redigera importerad fakta. Större ändringar kan skickas för godkännande, medan mindre rättningar fortfarande kan publiceras direkt.</p>
 		</div>
-		<a class="back-link" href="/admin/content-studio/facts">Tillbaka till faktalistan</a>
+		<a class="back-link" href={resolve('/admin/content-studio/facts', {})}>Tillbaka till faktalistan</a>
 	</header>
 
-	<ContentStudioNav />
+	<ContentStudioNav active="overview" />
 
 	{#if form?.success}
 		<p class="status-message success">{form.success}</p>

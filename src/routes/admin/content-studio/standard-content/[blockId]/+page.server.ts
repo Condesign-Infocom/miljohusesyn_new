@@ -19,6 +19,10 @@ function readStandardContentValues(formData: FormData) {
 	};
 }
 
+function readPublishStatus(formData: FormData) {
+	return String(formData.get('intent') ?? '') === 'publish' ? 'published' : 'in_review';
+}
+
 export const load = async ({ locals, params, url }) => {
 	const user = requireContentStudioUser(locals, url);
 	const result = await loadStandardContentEditor(params.blockId, user.id);
@@ -47,12 +51,14 @@ export const load = async ({ locals, params, url }) => {
 export const actions = {
 	save: async ({ locals, params, request, url }) => {
 		const user = requireContentStudioUser(locals, url);
-		const values = readStandardContentValues(await request.formData());
+		const formData = await request.formData();
+		const values = readStandardContentValues(formData);
+		const status = readPublishStatus(formData);
 		const result = await saveStandardContentDraft({
 			blockId: params.blockId,
 			userId: user.id,
 			values,
-			status: 'published'
+			status
 		});
 
 		if (!result.item || !result.draft) {
@@ -63,6 +69,13 @@ export const actions = {
 			return fail(400, { action: 'save', errors: result.validation.errors, values, editor: result });
 		}
 
-		return { action: 'save', success: 'Texten sparades och publicerades direkt.', editor: result };
+		return {
+			action: 'save',
+			success:
+				status === 'published' ?
+					'Texten sparades och publicerades direkt.'
+				:	'Texten skickades för godkännande.',
+			editor: result
+		};
 	}
 };

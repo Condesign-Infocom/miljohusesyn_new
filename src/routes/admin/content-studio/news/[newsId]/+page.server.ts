@@ -30,6 +30,10 @@ function mapFormErrors(errors: Record<string, string>) {
 	};
 }
 
+function readPublishStatus(formData: FormData) {
+	return String(formData.get('intent') ?? '') === 'publish' ? 'published' : 'in_review';
+}
+
 export const load = async ({ locals, params, url }) => {
 	const user = requireContentStudioUser(locals, url);
 	const result = await loadNewsEditor(params.newsId, user.id);
@@ -47,12 +51,14 @@ export const load = async ({ locals, params, url }) => {
 export const actions = {
 	save: async ({ locals, params, request, url }) => {
 		const user = requireContentStudioUser(locals, url);
-		const values = readNewsValues(await request.formData());
+		const formData = await request.formData();
+		const values = readNewsValues(formData);
+		const status = readPublishStatus(formData);
 		const result = await saveNewsDraft({
 			newsId: params.newsId,
 			userId: user.id,
 			values: toDraftInput(values),
-			status: 'published'
+			status
 		});
 
 		if (!result.item || !result.draft) {
@@ -68,6 +74,11 @@ export const actions = {
 			});
 		}
 
-		return { action: 'save', success: 'Nyheten sparades och publicerades direkt.', editor: result };
+		return {
+			action: 'save',
+			success:
+				status === 'published' ? 'Nyheten sparades och publicerades direkt.' : 'Nyheten skickades för godkännande.',
+			editor: result
+		};
 	}
 };

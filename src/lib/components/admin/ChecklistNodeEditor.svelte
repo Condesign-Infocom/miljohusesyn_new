@@ -94,8 +94,28 @@
 		];
 	});
 
+	const selectedGroupDeleteDisabled = $derived(
+		selectedNode?.kind === 'group' ? selectedNode.group.questions.length > 0 : true
+	);
+
+	const selectedQuestionDeleteMessage = $derived.by(() => {
+		if (!selectedNode || selectedNode.kind !== 'question') {
+			return '';
+		}
+
+		if (selectedNode.question.factLinks.length > 0) {
+			return `Frågan har ${selectedNode.question.factLinks.length} faktalänkar som också tas bort.`;
+		}
+
+		return 'Frågan tas bort direkt.';
+	});
+
 	function normalizeTextareaText(value: string) {
 		return value.replace(/\s+/g, ' ').trim();
+	}
+
+	function confirmDelete(message: string) {
+		return window.confirm(message);
 	}
 </script>
 
@@ -130,14 +150,30 @@
 						<button
 							type="submit"
 							class="danger-text"
-							form="group-archive-form"
-							aria-label={`Arkivera grupp ${selectedNode.group.title}`}
+							form="group-delete-form"
+							disabled={selectedGroupDeleteDisabled}
+							aria-label={`Ta bort grupp ${selectedNode.group.title}`}
+							title={
+								selectedGroupDeleteDisabled ?
+									'Gruppen kan bara tas bort när den inte innehåller några frågor.'
+								:	`Ta bort gruppen ${selectedNode.group.title}`
+							}
+							onclick={(event) => {
+								if (
+									selectedGroupDeleteDisabled ||
+									confirmDelete(`Ta bort gruppen ${selectedNode.group.title}?`)
+								) {
+									return;
+								}
+
+								event.preventDefault();
+							}}
 						>
-							Arkivera
+							Ta bort
 						</button>
 					</div>
 				</form>
-				<form id="group-archive-form" method="POST" action="?/archiveGroup">
+				<form id="group-delete-form" method="POST" action="?/deleteGroup">
 					<input type="hidden" name="groupId" value={selectedNode.group.id} />
 				</form>
 
@@ -161,7 +197,7 @@
 				<form id="question-editor-form" method="POST" action="?/saveQuestion" class="hidden-form">
 					<input type="hidden" name="questionId" value={selectedNode.question.id} />
 				</form>
-				<form id="question-archive-form" method="POST" action="?/archiveQuestion" class="hidden-form">
+				<form id="question-delete-form" method="POST" action="?/deleteQuestion" class="hidden-form">
 					<input type="hidden" name="questionId" value={selectedNode.question.id} />
 				</form>
 				<form id="question-reset-form" method="POST" action="?/resetQuestion" class="hidden-form">
@@ -196,11 +232,29 @@
 						</button>
 						<button
 							type="submit"
-							form="question-archive-form"
+							form="question-delete-form"
 							class="danger-text"
-							aria-label={`Arkivera fråga ${selectedNode.question.questionText}`}
+							aria-label={`Ta bort fråga ${selectedNode.question.questionText}`}
+							title={
+								selectedNode.question.factLinks.length > 0 ?
+									selectedQuestionDeleteMessage
+								:	`Ta bort frågan ${selectedNode.question.questionText}`
+							}
+							onclick={(event) => {
+								if (
+									confirmDelete(
+										selectedNode.question.factLinks.length > 0 ?
+											`Ta bort frågan och ${selectedNode.question.factLinks.length} faktalänkar?`
+										:	'Ta bort frågan?'
+									)
+								) {
+									return;
+								}
+
+								event.preventDefault();
+							}}
 						>
-							Arkivera
+							Ta bort
 						</button>
 					</div>
 

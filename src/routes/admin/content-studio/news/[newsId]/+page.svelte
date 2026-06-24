@@ -3,6 +3,7 @@
 </svelte:head>
 
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ContentStudioNav from '$lib/components/admin/ContentStudioNav.svelte';
 	import RichTextHtmlEditor from '$lib/components/admin/RichTextHtmlEditor.svelte';
 
@@ -64,6 +65,8 @@
 
 	function statusLabel(status: string | null | undefined) {
 		if (status === 'published') return 'Publicerad';
+		if (status === 'in_review') return 'Väntar på godkännande';
+		if (status === 'draft') return 'Utkast';
 		return 'Inte ändrad';
 	}
 </script>
@@ -73,9 +76,9 @@
 		<div>
 			<p class="eyebrow">Innehållsredaktion</p>
 			<h1>Redigera nyhet</h1>
-			<p class="lead">Redigera publika nyheter. Giltiga ändringar sparas och publiceras direkt.</p>
+			<p class="lead">Redigera publika nyheter. Större ändringar kan skickas för godkännande, medan mindre rättningar fortfarande kan publiceras direkt.</p>
 		</div>
-		<a class="back-link" href="/admin/content-studio/news">Tillbaka till nyheter</a>
+		<a class="back-link" href={resolve('/admin/content-studio/news', {})}>Tillbaka till nyheter</a>
 	</header>
 
 	<ContentStudioNav active="news" />
@@ -122,13 +125,16 @@
 							name="bodyHtml"
 							value={values.bodyHtml}
 						/>
-						<small class="field-hint">Redigera artikeln visuellt och växla till HTML-läge vid behov. Ändringen publiceras direkt när du sparar.</small>
+						<small class="field-hint">Redigera artikeln visuellt och växla till HTML-läge vid behov. Skicka större ändringar för godkännande eller publicera mindre rättningar direkt.</small>
 						{#if errors.bodyHtml}<small>{errors.bodyHtml}</small>{/if}
 					</label>
 				</div>
 
 				<div class="actions">
-					<button type="submit">Spara och publicera</button>
+					<button type="submit" name="intent" value="review">Skicka för godkännande</button>
+					<button type="submit" class="secondary-button" name="intent" value="publish">
+						Publicera direkt
+					</button>
 				</div>
 			</form>
 		</section>
@@ -139,7 +145,11 @@
 				<div class="reference-card">
 					<h3>Publik sida</h3>
 					<p>{editor.item?.title}</p>
-					<a href={`/nyheter/${editor.item?.slug ?? ''}`} target="_blank" rel="noreferrer">
+					<a
+						href={resolve('/nyheter/[slug]', { slug: editor.item?.slug ?? '' })}
+						target="_blank"
+						rel="noreferrer"
+					>
 						Öppna /nyheter/{editor.item?.slug}
 					</a>
 				</div>
@@ -151,7 +161,7 @@
 					<div><span>Legacy-källa</span><strong>{editor.item?.legacyUrl ? 'Ja' : 'Saknas'}</strong></div>
 				</div>
 
-				<p class="role-note">Ändringar på den här nyheten publiceras direkt när formuläret sparas.</p>
+				<p class="role-note">Här kan du välja mellan att skicka ändringen för godkännande eller publicera direkt.</p>
 
 				<details class="trace-details">
 					<summary>Spårning och genererat HTML</summary>
@@ -189,6 +199,7 @@
 	textarea { resize: vertical; }
 	.actions { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 18px; border-top: 1px solid #e1e6df; }
 	button { border: 0; border-radius: 5px; background: #007a5b; color: #fff; cursor: pointer; padding: 11px 18px; }
+	.secondary-button { background: #dbe8e0; color: #1f3a2d; font-weight: 700; }
 	.metrics { display: grid; gap: 10px; margin-top: 16px; }
 	.metrics div { padding: 12px; border: 1px solid #d8ded4; border-radius: 5px; }
 	.metrics span { display: block; color: #5d675f; font-size: 13px; }

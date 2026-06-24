@@ -3,6 +3,7 @@
 </svelte:head>
 
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ContentStudioNav from '$lib/components/admin/ContentStudioNav.svelte';
 	import RichTextHtmlEditor from '$lib/components/admin/RichTextHtmlEditor.svelte';
 
@@ -76,6 +77,8 @@
 
 	function statusLabel(status: string | null | undefined) {
 		if (status === 'published') return 'Publicerad';
+		if (status === 'in_review') return 'Väntar på godkännande';
+		if (status === 'draft') return 'Utkast';
 		return 'Inte ändrad';
 	}
 </script>
@@ -85,9 +88,15 @@
 		<div>
 			<p class="eyebrow">Innehållsredaktion</p>
 			<h1>Redigera standardtext</h1>
-			<p class="lead">Redigera standardtexten och se hur blocket används. Giltiga ändringar publiceras direkt.</p>
+			<p class="lead">Redigera standardtexten och se hur blocket används. Skicka större ändringar för godkännande eller publicera mindre rättningar direkt.</p>
 		</div>
-		<a class="back-link" href={data.frontendMeta ? '/admin/content-studio/frontend-content' : '/admin/content-studio/standard-content'}>
+		<a
+			class="back-link"
+			href={resolve(
+				data.frontendMeta ? '/admin/content-studio/frontend-content' : '/admin/content-studio/standard-content',
+				{}
+			)}
+		>
 			{data.frontendMeta ? 'Tillbaka till frontend-innehåll' : 'Tillbaka till standardtexter'}
 		</a>
 	</header>
@@ -124,13 +133,16 @@
 							name="bodyHtml"
 							value={values.bodyHtml}
 						/>
-						<small class="field-hint">Redigera texten visuellt och växla till HTML-läge vid behov. Ändringen publiceras direkt när du sparar.</small>
+						<small class="field-hint">Redigera texten visuellt och växla till HTML-läge vid behov. Skicka större ändringar för godkännande eller publicera mindre rättningar direkt.</small>
 						{#if errors.bodyHtml}<small>{errors.bodyHtml}</small>{/if}
 					</label>
 				</div>
 
 				<div class="actions">
-					<button type="submit">Spara och publicera</button>
+					<button type="submit" name="intent" value="review">Skicka för godkännande</button>
+					<button type="submit" class="secondary-button" name="intent" value="publish">
+						Publicera direkt
+					</button>
 				</div>
 			</form>
 		</section>
@@ -142,10 +154,10 @@
 					<div class="frontend-card">
 						<h3>Publik sida</h3>
 						<p>{data.frontendMeta.publicTitle}</p>
-						<a href={data.frontendMeta.publicHref} target="_blank" rel="noreferrer">
+						<a href={resolve(data.frontendMeta.publicHref, {})} target="_blank" rel="noreferrer">
 							Öppna {data.frontendMeta.publicHref}
 						</a>
-						<small>Ändringar på den här sidan publiceras direkt när formuläret sparas.</small>
+						<small>Här kan du välja mellan att skicka ändringen för godkännande eller publicera direkt.</small>
 					</div>
 				{/if}
 				<div class="metrics">
@@ -221,6 +233,7 @@
 	textarea { resize: vertical; }
 	.actions { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 18px; border-top: 1px solid #e1e6df; }
 	button { border: 0; border-radius: 5px; background: #007a5b; color: #fff; cursor: pointer; padding: 11px 18px; }
+	.secondary-button { background: #dbe8e0; color: #1f3a2d; font-weight: 700; }
 	.metrics { display: grid; gap: 10px; }
 	.metrics div { padding: 12px; border: 1px solid #d8ded4; border-radius: 5px; }
 	.metrics span { display: block; color: #5d675f; font-size: 13px; }

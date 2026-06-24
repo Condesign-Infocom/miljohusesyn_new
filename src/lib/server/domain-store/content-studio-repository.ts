@@ -728,6 +728,33 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 		);
 	}
 
+	async function updateReviewRequestsForDraft(input: {
+		draftId: string;
+		fromStatus?: string;
+		toStatus: string;
+	}) {
+		if (input.fromStatus) {
+			await client.run(
+				`
+					update editorial_review_requests
+					set status = ?
+					where draft_id = ? and status = ?
+				`,
+				[input.toStatus, input.draftId, input.fromStatus]
+			);
+			return;
+		}
+
+		await client.run(
+			`
+				update editorial_review_requests
+				set status = ?
+				where draft_id = ?
+			`,
+			[input.toStatus, input.draftId]
+		);
+	}
+
 	async function listPublishingQueue(snapshotId?: string): Promise<ContentStudioPublishingQueueItem[]> {
 		const resolvedSnapshotId = await resolveSnapshotId(snapshotId);
 
@@ -1238,6 +1265,23 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 		return question;
 	}
 
+	async function deleteChecklistQuestion(input: { questionRowId: string }) {
+		await ensureChecklistMutationSchema();
+		await ensureChecklistQuestionFlagSchema();
+
+		const question = await getQuestionRecord(input.questionRowId);
+		if (!question) {
+			return null;
+		}
+
+		await deleteFactLinksForNode({
+			snapshotId: question.snapshotId,
+			nodeId: question.nodeId
+		});
+		await client.run('delete from questions where id = ?', [question.id]);
+		return question;
+	}
+
 	async function archiveChecklistGroup(input: { groupRowId: string; archivedAt: string }) {
 		await ensureChecklistMutationSchema();
 		await ensureChecklistQuestionFlagSchema();
@@ -1292,6 +1336,28 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 		}
 
 		await client.run('delete from questions where group_row_id = ?', [group.id]);
+		await client.run('delete from checklist_groups where id = ?', [group.id]);
+		return group;
+	}
+
+	async function deleteChecklistGroup(input: { groupRowId: string }) {
+		await ensureChecklistMutationSchema();
+		await ensureChecklistQuestionFlagSchema();
+
+		const group = await getChecklistGroupRecord(input.groupRowId);
+		if (!group) {
+			return null;
+		}
+
+		const questions = await listQuestionRecords(group.id);
+		if (questions.length > 0) {
+			throw new Error('Gruppen kan inte tas bort eftersom den fortfarande innehåller frågor.');
+		}
+
+		await deleteFactLinksForNode({
+			snapshotId: group.snapshotId,
+			nodeId: group.nodeId
+		});
 		await client.run('delete from checklist_groups where id = ?', [group.id]);
 		return group;
 	}
@@ -1474,6 +1540,23 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 				where snapshot_id = ? and fact_row_id = ? and node_id = ?
 			`,
 			[input.snapshotId, input.factRowId, input.nodeId]
+		);
+	}
+
+	async function deleteFactLinksForNode(input: { snapshotId: string; nodeId: string }) {
+		const normalizedNodeId = normalizeLegacyNodeId(input.nodeId);
+		const nodeIds =
+			normalizedNodeId && normalizedNodeId !== input.nodeId ?
+				[input.nodeId, normalizedNodeId]
+			:	[input.nodeId];
+
+		await client.run(
+			`
+				delete from fact_links
+				where snapshot_id = ?
+					and node_id in (${nodeIds.map(() => '?').join(', ')})
+			`,
+			[input.snapshotId, ...nodeIds]
 		);
 	}
 
@@ -2137,6 +2220,7 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 		updateDraftStatus,
 		appendDraftRevision,
 		createReviewRequest,
+		updateReviewRequestsForDraft,
 		listPublishingQueue,
 		approveReviewRequest,
 		listChecklistRows,
@@ -2171,6 +2255,8 @@ export function createContentStudioRepository(client: DomainStoreClient) {
 		reorderChecklistQuestions,
 		updateChecklistGroup,
 		updateChecklistQuestion,
+		deleteChecklistGroup,
+		deleteChecklistQuestion,
 		archiveChecklistGroup,
 		archiveChecklistQuestion
 	};

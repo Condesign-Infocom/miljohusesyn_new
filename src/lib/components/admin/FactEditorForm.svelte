@@ -17,7 +17,8 @@
 		errors = {},
 		linkOptions = [],
 		unresolvedNodeIds = [],
-		submitLabel = 'Spara och publicera'
+		submitLabel = 'Skicka för godkännande',
+		publishLabel = 'Publicera direkt'
 	}: {
 		values: {
 			title: string;
@@ -28,6 +29,7 @@
 		linkOptions: LinkOption[];
 		unresolvedNodeIds?: string[];
 		submitLabel?: string;
+		publishLabel?: string;
 	} = $props();
 
 	let selectedChecklist = $state('');
@@ -121,13 +123,14 @@
 			name="bodyHtml"
 			value={values.bodyHtml}
 		/>
-		<small class="field-hint">Redigera faktatexten visuellt och växla till HTML-läge vid behov. Ändringen publiceras direkt när du sparar.</small>
+		<small class="field-hint">Redigera faktatexten visuellt och växla till HTML-läge vid behov. Skicka större ändringar för godkännande eller publicera mindre rättningar direkt.</small>
 		{#if errors.bodyHtml}<small>{errors.bodyHtml}</small>{/if}
 	</label>
 </div>
 
 <div class="actions">
-	<button type="submit">{submitLabel}</button>
+	<button type="submit" name="intent" value="review">{submitLabel}</button>
+	<button type="submit" class="secondary-button" name="intent" value="publish">{publishLabel}</button>
 </div>
 
 <style>
@@ -154,5 +157,6 @@
 	.trace-details summary { cursor:pointer; color:#5d675f; }
 	.actions { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 18px; border-top: 1px solid #e1e6df; }
 	button { border: 0; border-radius: 5px; background: #007a5b; color: #fff; cursor: pointer; padding: 11px 18px; }
+	.secondary-button { background: #dbe8e0; color: #1f3a2d; font-weight: 700; }
 	@media (max-width: 720px) { .field-grid, .picker-toolbar { grid-template-columns: 1fr; } }
 </style>

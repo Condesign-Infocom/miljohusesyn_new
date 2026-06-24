@@ -32,7 +32,7 @@ test('admin can open content studio discovery pages', async ({ page }) => {
 	await expect(page.getByRole('heading', { name: /struktur/i })).toBeVisible();
 	await expect(page.getByRole('button', { name: /Skapa nära/ }).first()).toBeVisible();
 	await expect(page.getByRole('button', { name: /Fler åtgärder/ })).toHaveCount(0);
-	await expect(page.getByRole('button', { name: /Arkivera grupp/ }).first()).toBeVisible();
+	await expect(page.getByRole('button', { name: /Ta bort grupp/ }).first()).toBeVisible();
 	await expect(page.locator('.checklist-switcher a')).toHaveCount(5);
 });
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import RichTextHtmlEditor from '$lib/components/admin/RichTextHtmlEditor.svelte';
 
 	type FactSummary = {
@@ -89,7 +90,7 @@
 					.slice(0, 20) ?? [])
 	);
 
-	function factHref(factRowId: string) {
+	function factQuery(factRowId: string) {
 		const params = new URLSearchParams();
 
 		if (selectedNodeId) {
@@ -97,11 +98,11 @@
 		}
 
 		params.set('fact', factRowId);
-		return `/admin/content-studio/checklists/${encodeURIComponent(checklistId)}?${params.toString()}`;
+		return `?${params.toString()}`;
 	}
 
-	function editFactHref(factRowId: string) {
-		return `${factHref(factRowId)}&editFact=1`;
+	function editFactQuery(factRowId: string) {
+		return `${factQuery(factRowId)}&editFact=1`;
 	}
 
 	function openLinkModal() {
@@ -131,6 +132,19 @@
 
 	function factIdentifier(fact: FactSummary) {
 		return fact.factId?.trim() || fact.nodeId?.trim() || 'internt fakta-id';
+	}
+
+	function editorialStatusLabel(status: string | null | undefined) {
+		if (status === 'published') return 'Publicerad';
+		if (status === 'in_review') return 'Väntar på godkännande';
+		if (status === 'draft') return 'Utkast';
+		return status ?? 'okänd';
+	}
+
+	function navigateToFact(factRowId: string, mode: 'view' | 'edit' = 'view') {
+		window.location.href =
+			resolve('/admin/content-studio/checklists/[checklistId]', { checklistId }) +
+			(mode === 'edit' ? editFactQuery(factRowId) : factQuery(factRowId));
 	}
 
 	function defaultCreateFactTitle() {
@@ -192,18 +206,26 @@
 					{#each workspace.linkedFacts as fact (fact.factRowId)}
 						<article class:active={activeFactId === fact.factRowId} class="fact-card">
 							<div class="fact-card-main">
-								<a class="fact-select" href={factHref(fact.factRowId)}>
+								<button
+									type="button"
+									class="fact-select"
+									onclick={() => navigateToFact(fact.factRowId)}
+								>
 									<strong>{fact.title}</strong>
 									<span>{factIdentifier(fact)} · används av {fact.usageCount} frågor</span>
 									{#if fact.excerpt}
 										<p>{fact.excerpt}</p>
 									{/if}
-								</a>
+								</button>
 							</div>
 							<div class="fact-card-actions">
-								<a class="secondary-link-button" href={editFactHref(fact.factRowId)}>
+								<button
+									type="button"
+									class="secondary-link-button"
+									onclick={() => navigateToFact(fact.factRowId, 'edit')}
+								>
 									Redigera fakta
-								</a>
+								</button>
 								<form method="POST" action="?/unlinkFact">
 									<input type="hidden" name="nodeId" value={workspace.node.id} />
 									<input type="hidden" name="factId" value={fact.factRowId} />
@@ -225,7 +247,6 @@
 			<div>
 				<p class="modal-eyebrow">Fakta</p>
 				<h3>Redigera fakta</h3>
-				<p class="modal-copy">{workspace.selectedFact.title}</p>
 			</div>
 			<button type="button" class="modal-close" aria-label="Stäng dialog" onclick={closeEditModal}>
 				Stäng
@@ -257,14 +278,19 @@
 				</label>
 
 				<div class="editor-meta">
-					<span>Status: {workspace.selectedFactEditor.status}</span>
+					<span>Status: {editorialStatusLabel(workspace.selectedFactEditor.status)}</span>
 					{#if workspace.selectedFactEditor.updatedAt}
 						<span>Uppdaterad: {workspace.selectedFactEditor.updatedAt}</span>
 					{/if}
 				</div>
 
 				<div class="editor-actions">
-					<button type="submit" class="save-button">Spara och publicera fakta</button>
+					<button type="submit" class="save-button" name="intent" value="review">
+						Skicka för godkännande
+					</button>
+					<button type="submit" class="secondary-button" name="intent" value="publish">
+						Publicera direkt
+					</button>
 				</div>
 			</form>
 		{/key}
@@ -316,7 +342,12 @@
 					{#if errors.bodyHtml}<small>{errors.bodyHtml}</small>{/if}
 				</label>
 				<div class="editor-actions">
-					<button type="submit" class="save-button">Spara fakta</button>
+					<button type="submit" class="save-button" name="intent" value="review">
+						Skapa och skicka för godkännande
+					</button>
+					<button type="submit" class="secondary-button" name="intent" value="publish">
+						Skapa och publicera direkt
+					</button>
 					<button type="button" class="secondary-button" onclick={closeCreateFactForm}>
 						Tillbaka
 					</button>
@@ -351,7 +382,13 @@
 								{/if}
 							</div>
 							<div class="picker-card-actions">
-								<a class="text-link" href={factHref(fact.factRowId)}>Öppna fakta</a>
+								<button
+									type="button"
+									class="text-link"
+									onclick={() => navigateToFact(fact.factRowId)}
+								>
+									Öppna fakta
+								</button>
 								{#if fact.isLinked}
 									<span class="linked-badge">Redan kopplad</span>
 								{:else}
@@ -540,10 +577,13 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		border: 0;
 		border-radius: 5px;
 		background: #dbe8e0;
 		color: #1f3a2d;
+		cursor: pointer;
 		font-weight: 700;
+		font: inherit;
 		text-decoration: none;
 		white-space: nowrap;
 	}
@@ -639,8 +679,15 @@
 	.fact-select {
 		display: grid;
 		gap: 6px;
+		border: 0;
+		background: transparent;
 		color: inherit;
+		cursor: pointer;
+		font: inherit;
+		padding: 0;
+		text-align: left;
 		text-decoration: none;
+		width: 100%;
 	}
 
 	.fact-card span,
@@ -773,9 +820,14 @@
 	}
 
 	.text-link {
+		border: 0;
+		background: transparent;
 		color: #00754c;
+		cursor: pointer;
+		font: inherit;
 		font-size: 14px;
 		font-weight: 700;
+		padding: 0;
 		text-decoration: none;
 	}
 

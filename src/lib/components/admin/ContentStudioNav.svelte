@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
 	type ActiveNavItem =
 		| 'overview'
 		| 'profiles'
 		| 'checklists'
+		| 'publishing'
 		| 'validation'
 		| 'frontend'
 		| 'news';
@@ -19,6 +22,7 @@
 		{ id: 'overview', label: 'Innehållsredaktion', href: '/admin/content-studio' },
 		{ id: 'profiles', label: 'Profiler', href: '/admin/content-studio/profile-rules' },
 		{ id: 'frontend', label: 'Frontend-innehåll', href: '/admin/content-studio/frontend-content' },
+		{ id: 'publishing', label: 'Publicering', href: '/admin/content-studio/publishing' },
 		{ id: 'news', label: 'Nyheter', href: '/admin/content-studio/news' },
 		{ id: 'validation', label: 'Validering', href: '/admin/content-studio/validation' }
 	];
@@ -26,7 +30,9 @@
 
 <nav class="admin-nav" aria-label="Navigering för innehållsredaktion">
 	{#each items as item (item.id)}
-		<a aria-current={active === item.id ? 'page' : undefined} href={item.href}>{item.label}</a>
+		<a aria-current={active === item.id ? 'page' : undefined} href={resolve(item.href, {})}>
+			{item.label}
+		</a>
 	{/each}
 </nav>
 
