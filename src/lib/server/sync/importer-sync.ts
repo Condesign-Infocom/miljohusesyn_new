@@ -3,7 +3,6 @@ import { createRequire } from 'node:module';
 import type Database from 'better-sqlite3';
 import { Client, type PoolClient } from 'pg';
 import { getRuntimeDbEngine, requireRuntimePostgresPool, type AppDb } from '../db/client';
-import { resetRuntimePostgresSequences, runtimePostgresContentSequenceTables } from '../db/runtime-postgres-sequences';
 import { replaceRuntimeContentSnapshotInPostgres } from '../db/runtime-postgres-shadow';
 import {
 	appChecklists,
@@ -394,7 +393,6 @@ async function syncImporterSnapshotToRuntimePostgres(payload: ImportPayload) {
 
 	try {
 		await client.query('begin');
-		await resetRuntimePostgresSequences(client, runtimePostgresContentSequenceTables);
 
 		if (payload.profileImport) {
 			await client.query('delete from app_profile_catalog');
