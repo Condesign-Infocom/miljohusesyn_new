@@ -200,6 +200,9 @@ export async function renderChecklistQaReportPdf(
 
 	const args = [
 		'--headless=new',
+		'--no-sandbox',
+		'--disable-setuid-sandbox',
+		'--disable-dev-shm-usage',
 		'--disable-gpu',
 		'--allow-file-access-from-files',
 		'--enable-local-file-accesses',
