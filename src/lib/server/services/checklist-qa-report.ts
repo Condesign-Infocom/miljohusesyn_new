@@ -11,6 +11,7 @@ import {
 	normalizePublicBodyHtml
 } from './public-content-format';
 import { resolveChromePath } from './chrome-path';
+import { writePagedJsBundle } from './paged-js';
 
 type QaFact = {
 	factRowId: string;
@@ -196,7 +197,8 @@ export async function renderChecklistQaReportPdf(
 	const reportPath = path.join(outputDir, 'checklist-qa-render-report.json');
 
 	await fs.mkdir(outputDir, { recursive: true });
-	await fs.writeFile(htmlPath, built.html, 'utf8');
+	const pagedJsPath = await writePagedJsBundle(outputDir);
+	await fs.writeFile(htmlPath, built.html.replace(pagedJsUrl, pagedJsPath), 'utf8');
 
 	const args = [
 		'--headless=new',
@@ -207,7 +209,7 @@ export async function renderChecklistQaReportPdf(
 		'--allow-file-access-from-files',
 		'--enable-local-file-accesses',
 		'--run-all-compositor-stages-before-draw',
-		'--virtual-time-budget=20000',
+		'--virtual-time-budget=10000',
 		'--print-to-pdf-no-header',
 		`--print-to-pdf=${outputPdf}`,
 		pathToFileURL(htmlPath).href

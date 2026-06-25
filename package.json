@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.2.9",
+    "pagedjs": "^0.4.3",
     "@tiptap/core": "^3.23.5",
     "@tiptap/extension-link": "^3.23.5",
     "@tiptap/pm": "^3.23.5",

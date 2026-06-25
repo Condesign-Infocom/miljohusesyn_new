@@ -11,6 +11,7 @@ import { createContentStudioRepository } from '$lib/server/domain-store/content-
 import { normalizePublicBodyHtml } from './public-content-format';
 import { canViewQuestion, canViewSection, loadVisibilityContext } from './visibility';
 import { resolveChromePath } from './chrome-path';
+import { writePagedJsBundle } from './paged-js';
 
 type StandardContentBlock = {
 	blockId: string | null;
@@ -93,7 +94,6 @@ const legacyFoAssetRoot = path.join(
 	'mhs',
 	'xslfo'
 );
-const pagedJsUrl = 'https://unpkg.com/pagedjs/dist/paged.polyfill.js';
 const checklistOrder = ['miljohusesyn-g', 'miljohusesyn-v', 'miljohusesyn-d', 'miljohusesyn-a'];
 const canonicalRootTargetOrder = [
 	'id-preface1',
@@ -395,7 +395,8 @@ export async function generateChecklistCompleteBookHtmlPdf(
 	const reportPath = path.join(outputDir, 'pdf-render-report.json');
 
 	await fs.mkdir(outputDir, { recursive: true });
-	await fs.writeFile(htmlPath, renderCompleteBookHtml(report), 'utf8');
+	const pagedJsPath = await writePagedJsBundle(outputDir);
+	await fs.writeFile(htmlPath, renderCompleteBookHtml(report, pagedJsPath), 'utf8');
 
 	const chromePath = await resolveChromePath();
 	if (!chromePath) {
@@ -411,7 +412,7 @@ export async function generateChecklistCompleteBookHtmlPdf(
 		'--allow-file-access-from-files',
 		'--enable-local-file-accesses',
 		'--run-all-compositor-stages-before-draw',
-		'--virtual-time-budget=20000',
+		'--virtual-time-budget=10000',
 		'--no-pdf-header-footer',
 		'--print-to-pdf-no-header',
 		`--print-to-pdf=${outputPdf}`,
@@ -505,7 +506,7 @@ function isGeneratedTarget(target: string) {
 	return target === 'id-checklists' || target === 'id-facts';
 }
 
-function renderCompleteBookHtml(report: FullBookReport) {
+function renderCompleteBookHtml(report: FullBookReport, pagedJsPath: string) {
 	return `<!doctype html>
 <html lang="sv">
   <head>
@@ -515,7 +516,7 @@ function renderCompleteBookHtml(report: FullBookReport) {
     <script>
       window.PagedConfig = { auto: false };
     </script>
-    <script src="${pagedJsUrl}"></script>
+    <script src="${escapeHtml(pagedJsPath)}"></script>
     <script>
       window.addEventListener('load', () => {
         const finish = () => {

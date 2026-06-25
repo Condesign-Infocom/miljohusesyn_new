@@ -7,6 +7,7 @@ import type { AppDb } from '$lib/server/db/client';
 import { createRuntimeGateway } from '$lib/server/db/runtime-gateway';
 import { getChecklistOverview, getChecklistSectionDetail } from './checklists';
 import { resolveChromePath } from './chrome-path';
+import { writePagedJsBundle } from './paged-js';
 
 type ActionPlanQuestion = {
 	id: number;
@@ -52,7 +53,6 @@ const exportOutputRoot = path.join(
 	'outputs',
 	'app-exports'
 );
-const pagedJsUrl = 'https://unpkg.com/pagedjs/dist/paged.polyfill.js';
 const compositeChecklistSlugs = new Set(['miljohusesyn', 'grundvillkor', 'nya-fragor']);
 
 export async function generateChecklistActionPlanPdf(db: AppDb, checklistSlug: string, userId: number) {
@@ -144,7 +144,8 @@ export async function generateChecklistActionPlanPdf(db: AppDb, checklistSlug: s
 	const reportPath = path.join(outputDir, 'pdf-render-report.json');
 
 	await fs.mkdir(outputDir, { recursive: true });
-	await fs.writeFile(htmlPath, renderChecklistActionPlanHtml(report), 'utf8');
+	const pagedJsPath = await writePagedJsBundle(outputDir);
+	await fs.writeFile(htmlPath, renderChecklistActionPlanHtml(report, pagedJsPath), 'utf8');
 
 	const chromePath = await resolveChromePath();
 	if (!chromePath) {
@@ -160,7 +161,7 @@ export async function generateChecklistActionPlanPdf(db: AppDb, checklistSlug: s
 		'--allow-file-access-from-files',
 		'--enable-local-file-accesses',
 		'--run-all-compositor-stages-before-draw',
-		'--virtual-time-budget=20000',
+		'--virtual-time-budget=10000',
 		'--no-pdf-header-footer',
 		'--print-to-pdf-no-header',
 		`--print-to-pdf=${outputPdf}`,
@@ -202,7 +203,7 @@ export async function generateChecklistActionPlanPdf(db: AppDb, checklistSlug: s
 	};
 }
 
-function renderChecklistActionPlanHtml(report: ActionPlanReport) {
+function renderChecklistActionPlanHtml(report: ActionPlanReport, pagedJsPath: string) {
 	return `<!doctype html>
 <html lang="sv">
   <head>
@@ -212,7 +213,7 @@ function renderChecklistActionPlanHtml(report: ActionPlanReport) {
     <script>
       window.PagedConfig = { auto: false };
     </script>
-    <script src="${pagedJsUrl}"></script>
+    <script src="${escapeHtml(pagedJsPath)}"></script>
     <script>
       window.addEventListener('load', () => {
         const finish = () => {
