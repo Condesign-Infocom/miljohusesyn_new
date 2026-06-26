@@ -37,9 +37,8 @@
 			page.url.searchParams.get('redirectTo') ?? '/'
 		:	`${page.url.pathname}${page.url.search}${page.url.hash}` || '/'
 	);
-	const downloadRedirectHref = '/login?redirectTo=%2Fdownload%2Fmiljohusesyn';
+	const publicDownloadHref = '/download/miljohusesyn-grundbok';
 	const defaultChecklistHref = '/checklists/miljohusesyn';
-	const defaultChecklistLoginHref = '/login?redirectTo=%2Fchecklists%2Fmiljohusesyn';
 	const loginRedirectHref = $derived(
 		`/login?redirectTo=${encodeURIComponent(nestedLoginRedirectTarget)}`
 	);
@@ -132,7 +131,7 @@
 			selectedSearchScope={publicSearchScope}
 			publicSearchQuery={publicSearchQuery}
 			loginRedirectHref={loginRedirectHref}
-			downloadHref={data.user ? '/download/miljohusesyn' : downloadRedirectHref}
+			downloadHref={publicDownloadHref}
 			showChecklistLinks={showChecklistLinks}
 			canAccessContentStudio={canAccessContentStudio}
 			canManageUsers={canManageUsersRole}
@@ -152,9 +151,6 @@
 	</div>
 
 	{#if showPublicShell}
-		<PublicFooter
-			downloadHref={data.user ? '/download/miljohusesyn' : downloadRedirectHref}
-			checklistsHref={data.user ? defaultChecklistHref : defaultChecklistLoginHref}
-		/>
+		<PublicFooter />
 	{/if}
 </div>

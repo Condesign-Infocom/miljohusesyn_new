@@ -440,6 +440,102 @@ describe('checklist services', () => {
 		expect(detail?.groups.map((group) => group.prefix)).toEqual(['V1']);
 		expect(detail?.groups.map((group) => group.title)).toEqual(['Registrering']);
 	});
+
+	it('maps composite filter links by area when switching between grundvillkor and nya fragor', async () => {
+		const db = createTestDb();
+		const userId = insertUser(db, 'composite-filter-user', 'composite-filter-user@miljohusesyn.local');
+
+		const gChecklistId = Number(
+			db
+				.insert(appChecklists)
+				.values({
+					slug: 'miljohusesyn-g',
+					title: 'Allmanna Gardskrav',
+					variantKey: 'default',
+					snapshotKey: 'test-snapshot'
+				})
+				.run().lastInsertRowid
+		);
+
+		const ccSectionId = Number(
+			db
+				.insert(appSections)
+				.values({
+					checklistId: gChecklistId,
+					nodeId: 'sec-cc-g',
+					prefix: 'G1',
+					title: 'CC section',
+					sortOrder: 1
+				})
+				.run().lastInsertRowid
+		);
+		const newSectionId = Number(
+			db
+				.insert(appSections)
+				.values({
+					checklistId: gChecklistId,
+					nodeId: 'sec-new-g',
+					prefix: 'G2',
+					title: 'New section',
+					sortOrder: 2
+				})
+				.run().lastInsertRowid
+		);
+
+		const ccGroupId = Number(
+			db
+				.insert(appQuestionGroups)
+				.values({
+					sectionId: ccSectionId,
+					nodeId: 'sec-cc-g:group',
+					prefix: 'G1',
+					title: 'CC group',
+					sortOrder: 1
+				})
+				.run().lastInsertRowid
+		);
+		const newGroupId = Number(
+			db
+				.insert(appQuestionGroups)
+				.values({
+					sectionId: newSectionId,
+					nodeId: 'sec-new-g:group',
+					prefix: 'G2',
+					title: 'New group',
+					sortOrder: 1
+				})
+				.run().lastInsertRowid
+		);
+
+		db.insert(appQuestions)
+			.values([
+				{
+					groupId: ccGroupId,
+					nodeId: 'q-cc-g-1',
+					prefix: 'G1-1',
+					questionText: 'CC question',
+					sortOrder: 1,
+					cc: true
+				},
+				{
+					groupId: newGroupId,
+					nodeId: 'q-new-g-1',
+					prefix: 'G2-1',
+					questionText: 'New question',
+					sortOrder: 1,
+					newFlag: true
+				}
+			])
+			.run();
+
+		db.insert(appChecklistAssignments).values({ userId, checklistId: gChecklistId }).run();
+
+		const detail = await getChecklistSectionDetail(db, 'grundvillkor', 'sec-cc-g', userId);
+		const nyaFragorFilter = detail?.filters.find((filter) => filter.slug === 'nya-fragor');
+
+		expect(nyaFragorFilter?.sectionId).toBe('sec-new-g');
+		expect(nyaFragorFilter?.sectionId).not.toBe('sec-cc-g');
+	});
 });
 
 function createVisibilityFixtureDb() {

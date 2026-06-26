@@ -41,6 +41,7 @@ type CompositeAreaSummary = {
 	totalQuestions: number;
 	members: CompositeVisibleSection[];
 };
+type CompositeAreaMapBySlug = Partial<Record<ChecklistTargetDescriptor['slug'], Record<string, string>>>;
 
 const COMPOSITE_TARGETS: ChecklistTargetDescriptor[] = [
 	{ slug: 'miljohusesyn', mode: 'full', showExportActions: true },
@@ -265,16 +266,16 @@ async function getCompositeChecklistSectionDetail(
 	const factNodeIdByQuestionId = new Map(data.factLinks.map((link) => [link.questionId, link.nodeId] as const));
 	const currentArea = areaSections[areaIndex];
 	const descriptor = COMPOSITE_TARGETS.find((target) => target.slug === resolved.slug)!;
+	const areaNodeIdByPrefixBySlug = buildCompositeAreaMapBySlug(data, bundles, userId, context);
 
 	return {
 		checklistSlug: descriptor.slug,
 		checklistTitle: compositeChecklistTitle(descriptor.mode),
-		filters: buildChecklistFilters(
+		filters: buildCompositeChecklistFilters(
 			descriptor.slug,
 			currentArea.nodeId,
 			currentArea.prefixKey,
-			areaSections.map((area) => area.nodeId),
-			Object.fromEntries(areaSections.map((area) => [area.prefixKey, area.nodeId] as const))
+			areaNodeIdByPrefixBySlug
 		),
 		sections: areaSections.map((area) => ({
 			nodeId: area.nodeId,
@@ -354,13 +355,9 @@ function buildChecklistFilters(
 	availableSectionNodeIds: string[] = [],
 	areaNodeIdByPrefix: Record<string, string> = {}
 ): ChecklistFilterOption[] {
-	const availableSectionNodeIdSet = new Set(availableSectionNodeIds);
-
 	return COMPOSITE_TARGETS.map((target) => {
 		const sectionHref =
 			currentSectionNodeId && target.slug === activeSlug ?
-				currentSectionNodeId
-			: currentSectionNodeId && availableSectionNodeIdSet.has(currentSectionNodeId) ?
 				currentSectionNodeId
 			: currentAreaPrefix ?
 				buildChecklistAreaSectionId(currentAreaPrefix, areaNodeIdByPrefix)
@@ -375,8 +372,44 @@ function buildChecklistFilters(
 	});
 }
 
+function buildCompositeChecklistFilters(
+	activeSlug: string,
+	currentSectionNodeId: string,
+	currentAreaPrefix: string,
+	areaNodeIdByPrefixBySlug: CompositeAreaMapBySlug
+): ChecklistFilterOption[] {
+	return COMPOSITE_TARGETS.map((target) => ({
+		slug: target.slug,
+		label: compositeChecklistLabel(target.mode),
+		sectionId:
+			target.slug === activeSlug ?
+				currentSectionNodeId
+			:	buildChecklistAreaSectionId(currentAreaPrefix, areaNodeIdByPrefixBySlug[target.slug] ?? {}),
+		active: target.slug === activeSlug
+	}));
+}
+
 function buildChecklistAreaSectionId(areaPrefix: string, areaNodeIdByPrefix: Record<string, string>) {
 	return areaNodeIdByPrefix[normalizeAreaPrefix(areaPrefix)] ?? null;
+}
+
+function buildCompositeAreaMapBySlug(
+	data: ChecklistRuntimeData,
+	bundles: CompositeBundle[],
+	userId: number,
+	context: VisibilityContext
+): CompositeAreaMapBySlug {
+	const areaNodeIdByPrefixBySlug: CompositeAreaMapBySlug = {};
+
+	for (const target of COMPOSITE_TARGETS) {
+		const visibleSections = flattenVisibleCompositeSections(bundles, context, target.mode);
+		const areaSections = buildCompositeAreaSections(data, visibleSections, userId, context, target.mode);
+		areaNodeIdByPrefixBySlug[target.slug] = Object.fromEntries(
+			areaSections.map((area) => [area.prefixKey, area.nodeId] as const)
+		);
+	}
+
+	return areaNodeIdByPrefixBySlug;
 }
 
 function orderedAssignedChecklists(data: ChecklistRuntimeData, assignedChecklistIds: Set<number>) {

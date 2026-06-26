@@ -126,7 +126,16 @@ export async function generateChecklistCompleteBookHtmlPdf(
 		mode === 'complete' ? Promise.resolve(null) : loadVisibilityContext(db, userId)
 	]);
 
-	if (!user) {
+	const effectiveUser =
+		user ??
+		(mode === 'complete' ?
+			{
+				displayName: 'Miljöhusesyn',
+				companyName: 'Miljöhusesyn'
+			}
+		:	null);
+
+	if (!effectiveUser) {
 		return null;
 	}
 
@@ -368,8 +377,8 @@ export async function generateChecklistCompleteBookHtmlPdf(
 
 	const report: FullBookReport = {
 		title: 'Miljöhusesyn 2026',
-		userDisplayName: user.displayName,
-		companyName: user.companyName || user.displayName,
+		userDisplayName: effectiveUser.displayName,
+		companyName: effectiveUser.companyName || effectiveUser.displayName,
 		renderDate: new Date().toISOString().slice(0, 10),
 		mode,
 		checklists,

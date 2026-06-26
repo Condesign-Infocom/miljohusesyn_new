@@ -249,7 +249,7 @@
 					data-sveltekit-reload
 					class="rounded-full border border-line bg-cream px-4 py-3 text-center text-sm font-semibold text-leaf-2"
 				>
-					Ladda ned PDF
+					Ladda ned grundbok
 				</a>
 			</div>
 		</nav>

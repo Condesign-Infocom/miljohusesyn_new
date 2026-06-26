@@ -12,5 +12,8 @@ export const load = async ({ locals, params, url }) => {
 		error(404, 'Section not found');
 	}
 
-	return detail;
+	return {
+		...detail,
+		canExportComplete: user.role === 'admin'
+	};
 };

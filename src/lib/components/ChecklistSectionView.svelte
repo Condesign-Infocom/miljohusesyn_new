@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import FactModal from '$lib/components/FactModal.svelte';
+	import { FileText } from 'lucide-svelte';
 	import type { ChecklistSectionDetail, ChecklistSectionQuestion } from '$lib/types/checklists';
 
 	let { data }: { data: ChecklistSectionDetail } = $props();
@@ -12,6 +13,8 @@
 		dueDate: string;
 		saving: boolean;
 	};
+
+	type ExportKind = 'plan' | 'user-full' | 'complete';
 
 	const headingPrefix = $derived(
 		data.checklistTitle === 'Grundvillkor' || data.checklistTitle.startsWith('Nya frågor') ? 'Mina' : 'Min'
@@ -48,6 +51,9 @@
 	let factModal = $state(closedFactModal());
 	let questionState = $state<Record<number, QuestionState>>(createInitialQuestionState());
 	let selectedGroupNodeId = $state('');
+	let isExporting = $state(false);
+	let exportKind = $state<ExportKind>('plan');
+	let exportError = $state<string | null>(null);
 
 	$effect(() => {
 		questionState = createInitialQuestionState();
@@ -75,6 +81,27 @@
 			.flatMap((group) => group.questions)
 			.find((question) => question.factNodeId)?.factNodeId ?? null
 	);
+	const exportActions = $derived.by(() => {
+		const actions: Array<{ kind: ExportKind; label: string }> = [
+			{
+				kind: 'plan',
+				label: 'Min åtgärdsplan'
+			},
+			{
+				kind: 'user-full',
+				label: 'Min fullständiga bok'
+			}
+		];
+
+		if (data.canExportComplete) {
+			actions.push({
+				kind: 'complete',
+				label: 'Grundbok'
+			});
+		}
+
+		return actions;
+	});
 
 	async function save(questionId: number) {
 		questionState[questionId].saving = true;
@@ -111,6 +138,62 @@
 
 	function closeFact() {
 		factModal.open = false;
+	}
+
+	function exportLoadingLabel(kind: ExportKind) {
+		return kind === 'user-full' ? 'Skapar fullständig bok...'
+			: kind === 'complete' ? 'Skapar grundbok...'
+			: 'Skapar åtgärdsplan...';
+	}
+
+	function exportErrorLabel(kind: ExportKind) {
+		return kind === 'user-full' ? 'Det gick inte att skapa din fullständiga bok just nu.'
+			: kind === 'complete' ? 'Det gick inte att skapa grundboken just nu.'
+			: 'Det gick inte att skapa din åtgärdsplan just nu.';
+	}
+
+	async function downloadExport(kind: ExportKind) {
+		if (isExporting) {
+			return;
+		}
+
+		isExporting = true;
+		exportKind = kind;
+		exportError = null;
+
+		try {
+			const formData = new FormData();
+			formData.set('kind', kind);
+
+			const response = await fetch(
+				resolve('/checklists/[checklistId]/pdf', { checklistId: data.checklistSlug }),
+				{
+					method: 'POST',
+					body: formData
+				}
+			);
+
+			if (!response.ok) {
+				exportError = exportErrorLabel(kind);
+				return;
+			}
+
+			const blob = await response.blob();
+			const downloadUrl = URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			const disposition = response.headers.get('Content-Disposition') ?? '';
+			const filenameMatch = disposition.match(/filename="([^"]+)"/i);
+			link.href = downloadUrl;
+			link.download = filenameMatch?.[1] ?? `${data.checklistSlug}.pdf`;
+			document.body.append(link);
+			link.click();
+			link.remove();
+			URL.revokeObjectURL(downloadUrl);
+		} catch {
+			exportError = exportErrorLabel(kind);
+		} finally {
+			isExporting = false;
+		}
 	}
 
 	function completedInGroup(group: { questions: ChecklistSectionQuestion[] }) {
@@ -166,31 +249,59 @@
 			{/if}
 		</div>
 
-		<div class="progress-panel" aria-label={`Totalt ${totalProgress}%`}>
-			<div class="progress-ring" style={`--progress: ${totalProgress * 3.6}deg`}>
-				<div>
-					<strong>{totalProgress}%</strong>
+		<div class="progress-panel">
+			<div class="progress-card" aria-label={`Totalt ${totalProgress}%`}>
+				<div class="progress-ring" style={`--progress: ${totalProgress * 3.6}deg`}>
+					<div>
+						<strong>{totalProgress}%</strong>
+					</div>
 				</div>
+				<span>Totalt</span>
+				<small>{completedQuestions} av {totalQuestions} frågor besvarade</small>
 			</div>
-			<span>Totalt</span>
-			<small>{completedQuestions} av {totalQuestions} frågor besvarade</small>
 		</div>
 	</header>
 
 	<nav class="section-tabs" aria-label="Navigera i checklistan">
-		<a class="tab" href={resolve('/checklists/[checklistId]', { checklistId: data.checklistSlug })}>Översikt</a>
-		{#each data.filters as filter (filter.slug)}
-			<button
-				type="button"
-				class="tab"
-				class:active-tab={filter.active}
-				aria-current={filter.active ? 'page' : undefined}
-				onclick={() => openFilter(filter.slug, filter.sectionId)}
-			>
-				{filter.label}
-			</button>
-		{/each}
+		<div class="section-tab-list">
+			<a class="tab" href={resolve('/checklists/[checklistId]', { checklistId: data.checklistSlug })}>Översikt</a>
+			{#each data.filters as filter (filter.slug)}
+				<button
+					type="button"
+					class="tab"
+					class:active-tab={filter.active}
+					aria-current={filter.active ? 'page' : undefined}
+					onclick={() => openFilter(filter.slug, filter.sectionId)}
+				>
+					{filter.label}
+				</button>
+			{/each}
+		</div>
+
+		<div class="pdf-tab-list" aria-label="Ladda ner PDF">
+			{#each exportActions as action (action.kind)}
+				<button
+					type="button"
+					class="tab pdf-tab"
+					disabled={isExporting}
+					onclick={() => downloadExport(action.kind)}
+				>
+					<FileText size={15} strokeWidth={2} aria-hidden="true" />
+					<span>
+						{#if isExporting && exportKind === action.kind}
+							{exportLoadingLabel(action.kind)}
+						{:else}
+							{action.label}
+						{/if}
+					</span>
+				</button>
+			{/each}
+		</div>
 	</nav>
+
+	{#if exportError}
+		<p class="export-error export-error-inline">{exportError}</p>
+	{/if}
 
 	<section class="instruction-section">
 		<div class="section-header">
@@ -482,10 +593,20 @@
 
 	.progress-panel {
 		display: grid;
+		justify-items: stretch;
+		gap: 14px;
+		min-width: 240px;
+		padding-top: 2px;
+	}
+
+	.progress-card {
+		display: grid;
 		justify-items: center;
 		gap: 10px;
-		min-width: 170px;
-		padding-top: 2px;
+		padding: 16px 18px;
+		border: 1px solid color-mix(in srgb, var(--color-line) 88%, white);
+		border-radius: 1rem;
+		background: rgb(255 255 255 / 0.72);
 		text-align: center;
 	}
 
@@ -524,11 +645,28 @@
 		line-height: 1.5;
 	}
 
+	.section-tab-list,
+	.pdf-tab-list {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: max-content;
+		gap: 10px;
+	}
+
+	.export-error {
+		margin: 12px 0 0;
+		color: #8e2d2d;
+		font-size: 0.9rem;
+		font-weight: 700;
+	}
+
 	.section-tabs {
 		display: flex;
 		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: center;
 		gap: 10px;
-		margin: 20px 0 48px;
+		margin: 20px 0 28px;
 	}
 
 	.tab {
@@ -551,6 +689,28 @@
 		border-color: var(--color-leaf);
 		background: var(--color-leaf);
 		color: var(--color-cream);
+	}
+
+	.pdf-tab {
+		gap: 8px;
+		border-style: dashed;
+		color: var(--color-leaf-2);
+		white-space: nowrap;
+	}
+
+	.pdf-tab:hover {
+		background: rgb(243 247 241 / 0.95);
+		border-color: color-mix(in srgb, var(--color-leaf) 42%, white);
+	}
+
+	.pdf-tab:disabled {
+		cursor: progress;
+		opacity: 0.8;
+	}
+
+	.export-error-inline {
+		margin-top: -14px;
+		margin-bottom: 36px;
 	}
 
 	.instruction-section {
@@ -927,6 +1087,10 @@
 			display: grid;
 		}
 
+		.progress-panel {
+			min-width: 0;
+		}
+
 		.question-table-head {
 			display: none;
 		}
@@ -958,6 +1122,16 @@
 		}
 
 		.section-tabs {
+			align-items: start;
+		}
+
+		.section-tab-list,
+		.pdf-tab-list {
+			grid-auto-flow: row;
+			grid-auto-columns: auto;
+		}
+
+		.export-error-inline {
 			margin-bottom: 32px;
 		}
 

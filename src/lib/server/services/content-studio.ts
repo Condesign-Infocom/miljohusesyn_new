@@ -37,11 +37,19 @@ import {
 	syncDomainStoreSnapshot,
 	syncPostgresDomainStoreSnapshot
 } from '../sync/importer-sync';
+import { refreshPublicCompleteBookArtifact } from './public-complete-book-artifact';
 
 function clearPublishedContentCaches() {
 	clearPublishedPublicFactsCache();
 	clearPublishedPublicNewsCache();
 	clearPublishedPublicStandardContentCache();
+}
+
+async function refreshPublicCompleteBookArtifactBestEffort(db = createDb()) {
+	const result = await refreshPublicCompleteBookArtifact(db);
+	if (!result.ok) {
+		console.warn('Best-effort public complete-book refresh failed', result.error);
+	}
 }
 
 export type ContentStudioFactListData = {
@@ -963,6 +971,7 @@ export async function materializePublishedSnapshot(snapshotId?: string) {
 			? await syncPostgresDomainStoreSnapshot(db, requirePostgresDsn(), snapshotId)
 			: await syncDomainStoreSnapshot(db, requireSqliteDomainStorePath(), snapshotId);
 	clearPublishedContentCaches();
+	await refreshPublicCompleteBookArtifactBestEffort(db);
 	return result;
 }
 
@@ -1557,6 +1566,10 @@ async function finalizeEditorialPublication(input: {
 	}
 
 	clearPublishedContentCaches();
+
+	if (input.contentKind === 'standard_content') {
+		await refreshPublicCompleteBookArtifactBestEffort();
+	}
 }
 
 export async function saveFactDraft(input: {
@@ -1955,6 +1968,7 @@ export async function saveStandardContentDraft(input: {
 
 	if (Object.keys(validation.errors).length === 0 && nextStatus === 'published') {
 		clearPublishedContentCaches();
+		await refreshPublicCompleteBookArtifactBestEffort();
 	}
 
 	return {

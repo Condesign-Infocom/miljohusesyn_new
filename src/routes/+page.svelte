@@ -144,10 +144,10 @@
 	<News linkLabel="Alla nyheter" linkHref={route('/nyheter')} items={newsItems} />
 
 	<Contact
-		downloadLabel="Ladda ned PDF"
-		downloadHref={route(
-			data.user ? '/download/miljohusesyn' : '/login?redirectTo=%2Fdownload%2Fmiljohusesyn'
-		)}
+		heading="Ladda ned grundboken som PDF."
+		body="En tom och utskriftsvänlig grundbok finns alltid redo för snabb nedladdning. Den uppdateras när innehållet i checklistan eller standardtexterna ändras."
+		downloadLabel="Ladda ned grundbok"
+		downloadHref={route('/download/miljohusesyn-grundbok')}
 		contactLabel="Kontakta oss"
 		contactHref={route('/kontakt')}
 		cards={contactCards}

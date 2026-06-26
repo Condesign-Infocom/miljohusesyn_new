@@ -38,6 +38,7 @@ export type ChecklistSectionDetail = {
 	checklistTitle: string;
 	filters: ChecklistFilterOption[];
 	sections: ChecklistOverviewSection[];
+	canExportComplete?: boolean;
 	section: {
 		nodeId: string;
 		prefix: string;
