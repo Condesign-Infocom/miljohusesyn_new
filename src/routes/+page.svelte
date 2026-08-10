@@ -5,21 +5,19 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import {
-		Calculations,
 		Contact,
 		Faktabank,
 		FeatureGrid,
 		Hero,
 		News,
 		PartnersBand,
-		type CalculationTool,
 		type ContactCard,
 		type FaktabankCard,
 		type FeatureGridItem,
 		type NewsListItem,
 		type TemplateLink
 	} from '$lib/template';
-	import { factTopics, publicCalculatorPages, type PublicNewsItem } from '$lib/public-site';
+	import { factTopics, type PublicNewsItem } from '$lib/public-site';
 
 	let {
 		data
@@ -35,7 +33,7 @@
 	const heroPrimaryCta = $derived<TemplateLink>(
 		data.user ?
 			{ label: 'Öppna mina checklistor', href: route('/checklists/miljohusesyn') }
-		:	{ label: 'Logga in / Registrera dig', href: route('/login') }
+		:	{ label: 'Logga in', href: route('/login') }
 	);
 
 	const featureItems: FeatureGridItem[] = [
@@ -85,16 +83,6 @@
 		}
 	];
 
-	const calculationTools: CalculationTool[] = publicCalculatorPages.map((calculator, index) => ({
-		number: `${index + 1}`.padStart(2, '0'),
-		title:
-			calculator.slug === 'spridningsareal-utifran-djur' ? 'Spridningsareal'
-			: calculator.slug === 'fosforbalansberakningar' ? 'Fosforbalans'
-			: 'Lagringsvolymer',
-		body: calculator.excerpt,
-		href: route(`/berakningar/${calculator.slug}`)
-	}));
-
 	const newsItems = $derived.by<NewsListItem[]>(() =>
 		data.homepageNews.map((item) => ({
 			date: item.date,
@@ -138,8 +126,6 @@
 		seeAll={{ label: 'Se hela faktabanken', href: route('/faktabank') }}
 		cards={faktabankCards}
 	/>
-
-	<Calculations tools={calculationTools} />
 
 	<News linkLabel="Alla nyheter" linkHref={route('/nyheter')} items={newsItems} />
 

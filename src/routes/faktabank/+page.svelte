@@ -108,6 +108,7 @@
 		</section>
 	{/if}
 
+	{#if !data.query}
 	<section class="mt-10">
 		<p class="text-xs font-semibold uppercase tracking-[0.2em] text-leaf">Publicerat nu</p>
 		<h2 class="font-display mt-2 text-3xl font-semibold tracking-tight text-bark md:text-4xl">
@@ -147,9 +148,9 @@
 	</section>
 
 	<section class="mt-10">
-		<p class="text-xs font-semibold uppercase tracking-[0.2em] text-leaf">Planerad täckning</p>
+		<p class="text-xs font-semibold uppercase tracking-[0.2em] text-leaf">Ämnesområden</p>
 		<h2 class="font-display mt-2 text-3xl font-semibold tracking-tight text-bark md:text-4xl">
-			Områden från legacy-sajten som flyttas in stegvis
+			Fördjupa dig inom ditt verksamhetsområde
 		</h2>
 		<div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 			{#each factTopics as topic (topic.slug)}
@@ -179,4 +180,5 @@
 			{/each}
 		</div>
 	</section>
+	{/if}
 </main>

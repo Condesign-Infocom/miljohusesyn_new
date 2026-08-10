@@ -756,6 +756,35 @@ describe('content studio durable-store access', () => {
 		]);
 	});
 
+	it('flags duplicate visible labels and obvious placeholder content', async () => {
+		const sqlite = new Database(domainStorePath);
+		sqlite
+			.prepare('update checklist_groups set title = ? where id = ?')
+			.run('Environment', 'snapshot-latest:checklist:1:group:2');
+		sqlite
+			.prepare('update questions set question_text = ? where group_row_id = ?')
+			.run('Ny fråga', 'snapshot-latest:checklist:1:group:2');
+		sqlite.close();
+
+		const validation = (await loadContentStudioValidation()).validation;
+
+		expect(validation.duplicateDisplayValues).toEqual([
+			expect.objectContaining({
+				checklistId: 'checklist-default',
+				kind: 'group-title',
+				value: 'Environment'
+			})
+		]);
+		expect(validation.placeholderContent).toEqual([
+			expect.objectContaining({
+				checklistId: 'checklist-default',
+				kind: 'question',
+				title: 'Ny fråga'
+			})
+		]);
+		expect(validation.readiness.state).toBe('blocking');
+	});
+
 	it('creates a checklist question draft after an existing question', async () => {
 		const created = await createChecklistQuestionDraft({
 			checklistId: 'checklist-default',

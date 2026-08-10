@@ -110,6 +110,20 @@ export type ContentStudioChecklistValidation = {
 		occurrences: number;
 		rows: Array<{ checklistId: string; kind: 'group' | 'question'; title: string }>;
 	}>;
+	duplicateDisplayValues: Array<{
+		checklistId: string;
+		kind: 'group-title' | 'question-text';
+		value: string;
+		rows: Array<{ id: string; nodeId: string; title: string; groupTitle?: string }>;
+	}>;
+	placeholderContent: Array<{
+		checklistId: string;
+		kind: 'group' | 'question';
+		id: string;
+		nodeId: string;
+		title: string;
+		groupTitle?: string;
+	}>;
 	missingFactLinks: Array<{
 		checklistId: string;
 		groupTitle: string;
@@ -2742,6 +2756,20 @@ async function buildChecklistValidation(
 		string,
 		Array<{ checklistId: string; kind: 'group' | 'question'; title: string }>
 	>();
+	const displayRegistry = new Map<
+		string,
+		Array<{
+			checklistId: string;
+			kind: 'group-title' | 'question-text';
+			scope?: string;
+			value: string;
+			id: string;
+			nodeId: string;
+			title: string;
+			groupTitle?: string;
+		}>
+	>();
+	const placeholderContent: ContentStudioChecklistValidation['placeholderContent'] = [];
 	const missingFactLinks: ContentStudioChecklistValidation['missingFactLinks'] = [];
 	const unresolvedFactNodeIds: ContentStudioChecklistValidation['unresolvedFactNodeIds'] = [];
 	const emptyQuestionTexts: ContentStudioChecklistValidation['emptyQuestionTexts'] = [];
@@ -2753,6 +2781,23 @@ async function buildChecklistValidation(
 				kind: 'group',
 				title: group.title
 			});
+			registerDisplayValue(displayRegistry, {
+				checklistId: tree.checklist.checklistId,
+				kind: 'group-title',
+				value: group.title,
+				id: group.id,
+				nodeId: group.nodeId,
+				title: group.title
+			});
+			if (isPlaceholderEditorialText(group.title)) {
+				placeholderContent.push({
+					checklistId: tree.checklist.checklistId,
+					kind: 'group',
+					id: group.id,
+					nodeId: group.nodeId,
+					title: group.title
+				});
+			}
 
 			for (const question of group.questions) {
 				registerNodeId(nodeRegistry, question.nodeId, {
@@ -2760,6 +2805,26 @@ async function buildChecklistValidation(
 					kind: 'question',
 					title: question.questionText
 				});
+				registerDisplayValue(displayRegistry, {
+					checklistId: tree.checklist.checklistId,
+					kind: 'question-text',
+					scope: group.id,
+					value: question.questionText,
+					id: question.id,
+					nodeId: question.nodeId,
+					title: question.questionText,
+					groupTitle: group.title
+				});
+				if (isPlaceholderEditorialText(question.questionText)) {
+					placeholderContent.push({
+						checklistId: tree.checklist.checklistId,
+						kind: 'question',
+						id: question.id,
+						nodeId: question.nodeId,
+						title: question.questionText,
+						groupTitle: group.title
+					});
+				}
 
 				if (!question.questionText.trim()) {
 					emptyQuestionTexts.push({
@@ -2802,6 +2867,19 @@ async function buildChecklistValidation(
 			rows
 		}))
 		.sort((left, right) => left.nodeId.localeCompare(right.nodeId));
+	const duplicateDisplayValues = Array.from(displayRegistry.values())
+		.filter((rows) => rows.length > 1)
+		.map((rows) => ({
+			checklistId: rows[0].checklistId,
+			kind: rows[0].kind,
+			value: rows[0].value,
+			rows: rows.map(({ id, nodeId, title, groupTitle }) => ({ id, nodeId, title, groupTitle }))
+		}))
+		.sort(
+			(left, right) =>
+				left.checklistId.localeCompare(right.checklistId, 'sv') ||
+				left.value.localeCompare(right.value, 'sv')
+		);
 
 	const missingStandardTargets = standardContentRows
 		.filter((row) => row.targetCount === 0)
@@ -2812,6 +2890,8 @@ async function buildChecklistValidation(
 		}));
 	const readiness = classifyChecklistReadiness({
 		duplicateNodeIdCount: duplicateNodeIds.length,
+		duplicateDisplayValueCount: duplicateDisplayValues.length,
+		placeholderContentCount: placeholderContent.length,
 		emptyQuestionTextCount: emptyQuestionTexts.length,
 		unresolvedFactNodeIdCount: unresolvedFactNodeIds.length,
 		missingFactLinkCount: missingFactLinks.length
@@ -2819,6 +2899,8 @@ async function buildChecklistValidation(
 
 	return {
 		duplicateNodeIds,
+		duplicateDisplayValues,
+		placeholderContent,
 		missingFactLinks,
 		unresolvedFactNodeIds,
 		emptyQuestionTexts,
@@ -2842,9 +2924,53 @@ function registerNodeId(
 	registry.set(normalizedNodeId, rows);
 }
 
+function registerDisplayValue(
+	registry: Map<
+		string,
+		Array<{
+			checklistId: string;
+			kind: 'group-title' | 'question-text';
+			scope?: string;
+			value: string;
+			id: string;
+			nodeId: string;
+			title: string;
+			groupTitle?: string;
+		}>
+	>,
+	entry: {
+		checklistId: string;
+		kind: 'group-title' | 'question-text';
+		scope?: string;
+		value: string;
+		id: string;
+		nodeId: string;
+		title: string;
+		groupTitle?: string;
+	}
+) {
+	const normalizedValue = entry.value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('sv');
+	if (!normalizedValue) {
+		return;
+	}
+
+	const key = `${entry.checklistId}:${entry.kind}:${entry.scope ?? ''}:${normalizedValue}`;
+	const rows = registry.get(key) ?? [];
+	rows.push(entry);
+	registry.set(key, rows);
+}
+
+function isPlaceholderEditorialText(value: string) {
+	return /^(ny grupp|ny fråga|testar grupp|testar ny fråga|updated from browser test)$/i.test(
+		value.trim()
+	);
+}
+
 function emptyChecklistValidation(): ContentStudioChecklistValidation {
 	return {
 		duplicateNodeIds: [],
+		duplicateDisplayValues: [],
+		placeholderContent: [],
 		missingFactLinks: [],
 		unresolvedFactNodeIds: [],
 		emptyQuestionTexts: [],
@@ -2915,12 +3041,18 @@ function resolveChecklistKey(checklistId: string, id: string, sourceRowId: strin
 
 function classifyChecklistReadiness(input: {
 	duplicateNodeIdCount: number;
+	duplicateDisplayValueCount?: number;
+	placeholderContentCount?: number;
 	emptyQuestionTextCount: number;
 	unresolvedFactNodeIdCount: number;
 	missingFactLinkCount: number;
 }): ContentStudioChecklistReadiness {
 	const blockerCount =
-		input.duplicateNodeIdCount + input.emptyQuestionTextCount + input.unresolvedFactNodeIdCount;
+		input.duplicateNodeIdCount +
+		(input.duplicateDisplayValueCount ?? 0) +
+		(input.placeholderContentCount ?? 0) +
+		input.emptyQuestionTextCount +
+		input.unresolvedFactNodeIdCount;
 	const warningCount = input.missingFactLinkCount;
 
 	return {

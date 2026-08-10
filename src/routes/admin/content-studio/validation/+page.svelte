@@ -10,6 +10,22 @@
 		rows: Array<{ checklistId: string; kind: string; title: string }>;
 	};
 
+	type DuplicateDisplayIssue = {
+		checklistId: string;
+		kind: 'group-title' | 'question-text';
+		value: string;
+		rows: Array<{ id: string; nodeId: string; title: string; groupTitle?: string }>;
+	};
+
+	type PlaceholderContentIssue = {
+		checklistId: string;
+		kind: 'group' | 'question';
+		id: string;
+		nodeId: string;
+		title: string;
+		groupTitle?: string;
+	};
+
 	type MissingFactIssue = {
 		checklistId: string;
 		groupTitle: string;
@@ -47,6 +63,8 @@
 			checklists: Array<{ id: string; checklistId: string; title: string }>;
 			validation: {
 				duplicateNodeIds: DuplicateNodeIdIssue[];
+				duplicateDisplayValues: DuplicateDisplayIssue[];
+				placeholderContent: PlaceholderContentIssue[];
 				missingFactLinks: MissingFactIssue[];
 				unresolvedFactNodeIds: UnresolvedFactIssue[];
 				emptyQuestionTexts: EmptyQuestionIssue[];
@@ -78,6 +96,18 @@
 				issue.rows.some((row) => row.checklistId === selectedChecklist)
 			)
 		:	data.validation.duplicateNodeIds
+	);
+	const filteredDuplicateDisplayValues = $derived(
+		selectedChecklist ?
+			data.validation.duplicateDisplayValues.filter(
+				(issue) => issue.checklistId === selectedChecklist
+			)
+		: data.validation.duplicateDisplayValues
+	);
+	const filteredPlaceholderContent = $derived(
+		selectedChecklist ?
+			data.validation.placeholderContent.filter((issue) => issue.checklistId === selectedChecklist)
+		: data.validation.placeholderContent
 	);
 	const filteredMissingFactLinks = $derived(
 		selectedChecklist ?
@@ -186,6 +216,14 @@
 			<strong>{filteredDuplicateNodeIds.length}</strong>
 		</div>
 		<div class="hero-card">
+			<span>Dubbla rubriker/texter</span>
+			<strong>{filteredDuplicateDisplayValues.length}</strong>
+		</div>
+		<div class="hero-card">
+			<span>Test- och platshållartext</span>
+			<strong>{filteredPlaceholderContent.length}</strong>
+		</div>
+		<div class="hero-card">
 			<span>Frågor utan fakta</span>
 			<strong>{filteredMissingFactLinks.length}</strong>
 		</div>
@@ -204,6 +242,58 @@
 	</section>
 
 	<div class="validation-stack">
+		<div class="two-column">
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<h2>Dubbla synliga rubriker eller texter</h2>
+						<p>Fångar dubbletter som användaren ser även när de interna node-id-värdena skiljer sig.</p>
+					</div>
+					<strong>{filteredDuplicateDisplayValues.length}</strong>
+				</div>
+
+				{#if filteredDuplicateDisplayValues.length === 0}
+					<p class="empty">Inga dubbla synliga rubriker eller frågetexter hittades.</p>
+				{:else}
+					<ul class="issue-list compact">
+						{#each buildPreview(filteredDuplicateDisplayValues) as issue (`${issue.checklistId}-${issue.kind}-${issue.value}`)}
+							<li>
+								<strong>{checklistLabel(issue.checklistId)}</strong>
+								<span>{issue.value}</span>
+								<small>{issue.kind === 'group-title' ? 'Grupprubrik' : 'Frågetext'} · {issue.rows.length} förekomster</small>
+								<a class="issue-link" href={`/admin/content-studio/checklists/${issue.checklistId}`}>Öppna checklistan</a>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+
+			<section class="panel">
+				<div class="panel-header">
+					<div>
+						<h2>Test- och platshållartext</h2>
+						<p>Poster med uppenbara arbetsnamn ska rättas eller tas bort innan publicering.</p>
+					</div>
+					<strong>{filteredPlaceholderContent.length}</strong>
+				</div>
+
+				{#if filteredPlaceholderContent.length === 0}
+					<p class="empty">Ingen test- eller platshållartext hittades.</p>
+				{:else}
+					<ul class="issue-list compact">
+						{#each buildPreview(filteredPlaceholderContent) as issue (`${issue.checklistId}-${issue.kind}-${issue.id}`)}
+							<li>
+								<strong>{checklistLabel(issue.checklistId)}</strong>
+								<span>{issue.title}</span>
+								{#if issue.groupTitle}<small>{issue.groupTitle}</small>{/if}
+								<a class="issue-link" href={issue.kind === 'question' ? checklistQuestionHref(issue.checklistId, issue.id) : `/admin/content-studio/checklists/${issue.checklistId}?selected=${encodeURIComponent(issue.id)}`}>Öppna posten</a>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		</div>
+
 		<section class="panel">
 			<div class="panel-header">
 				<div>

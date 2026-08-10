@@ -132,16 +132,6 @@ export const publicNavigation: PublicNavItem[] = [
 		]
 	},
 	{ label: 'Kontakt', href: '/kontakt' },
-	{
-		label: 'Beräkningar',
-		href: '/berakningar',
-		matchPrefix: '/berakningar',
-		children: [
-			{ label: 'Spridningsareal - Beräkningar utifrån djur', href: '/berakningar/spridningsareal-utifran-djur' },
-			{ label: 'Spridningsareal - Fosforbalansberäkningar', href: '/berakningar/fosforbalansberakningar' },
-			{ label: 'Lagringsvolymer för stallgödsel', href: '/berakningar/lagringsvolymer-stallgodsel' }
-		]
-	},
 	{ label: 'Om Miljöhusesyn', href: '/om' }
 ];
 
@@ -149,7 +139,7 @@ export const factTopics: FactTopic[] = [
 	{
 		slug: 'djurhallning',
 		title: 'Djurhållning',
-		description: 'Planerat publiceringsområde för regler och stödmaterial om djurhållning, utrymmeskrav och beredskap.',
+		description: 'Regler och stödmaterial om djurhållning, utrymmeskrav och beredskap.',
 		entries: [
 			{
 				title: 'Med en djurenhet (DE) menas',
@@ -181,7 +171,7 @@ export const factTopics: FactTopic[] = [
 	{
 		slug: 'b-eller-c-verksamhet',
 		title: 'B- eller C-verksamhet',
-		description: 'Planerat publiceringsområde för tillstånd, anmälningar och egenkontroll.',
+		description: 'Regler och stödmaterial om tillstånd, anmälningar och egenkontroll.',
 		entries: [
 			{
 				title: 'Anmälningspliktig verksamhet',
@@ -213,7 +203,7 @@ export const factTopics: FactTopic[] = [
 	{
 		slug: 'vaxtodling',
 		title: 'Växtodling',
-		description: 'Planerat publiceringsområde för spridningsregler, lagringskapacitet och säker växtodling.',
+		description: 'Regler och stödmaterial om spridningsregler, lagringskapacitet och säker växtodling.',
 		entries: [
 			{
 				title: 'Kemikalier',
@@ -245,7 +235,7 @@ export const factTopics: FactTopic[] = [
 	{
 		slug: 'regler-och-tillsyn',
 		title: 'Regler och tillsyn',
-		description: 'Planerat publiceringsområde för tillsyn, miljösanktionsavgifter och myndighetskontakter.',
+		description: 'Regler och stödmaterial om tillsyn, miljösanktionsavgifter och myndighetskontakter.',
 		entries: [
 			{
 				title: 'Miljösanktionsavgifter',
@@ -272,7 +262,7 @@ export const factTopics: FactTopic[] = [
 	{
 		slug: 'arbetsmiljo',
 		title: 'Arbetsmiljö',
-		description: 'Planerat publiceringsområde för arbetsmiljöarbete och mallar för risker i gårdsdriften.',
+		description: 'Regler och stödmaterial om arbetsmiljöarbete och risker i gårdsdriften.',
 		entries: [
 			{
 				title: 'Systematiskt arbetsmiljöarbete',

@@ -11,18 +11,13 @@
 
   const toolLinks = [
     { href: '/login', label: 'Logga in' },
-    { href: '/login', label: 'Registrera dig' },
-    { href: '/berakningar', label: 'Beräkningar' },
     { href: '/faktabank/liten-ordlista-om-regler', label: 'Ordlista' },
     { href: '/faktabank/branschriktlinjer', label: 'Branschriktlinjer' }
   ];
 
   const contactLinks = [
     { href: '/om', label: 'Om Miljöhusesyn' },
-    { href: '/kontakt', label: 'Kontakt' },
-    { href: '/kontakt', label: 'Cookies' },
-    { href: '/kontakt', label: 'Tillgänglighet' },
-    { href: '/kontakt', label: 'Personuppgifter' }
+	{ href: '/kontakt', label: 'Kontakt' }
   ];
 </script>
 

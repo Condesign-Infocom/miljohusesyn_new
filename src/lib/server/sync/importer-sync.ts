@@ -421,13 +421,18 @@ async function syncImporterSnapshotToRuntimePostgres(payload: ImportPayload) {
 		for (const checklist of payload.checklistImport.records) {
 			const checklistId = await upsertChecklistInPostgres(client, checklist, payload.snapshotKey);
 			const groups = orderImportGroups(checklist.groups);
+			const materializedSectionIds: number[] = [];
+			const materializedGroupIds: number[] = [];
+			const materializedQuestionIds: number[] = [];
 
 			for (const [index, group] of groups.entries()) {
 				const groupPrefix = inferGroupPrefix(checklist, group, index + 1);
 				const forceSequentialQuestionPrefixes = shouldForceSequentialQuestionPrefixes(group, groupPrefix);
 				const sectionId = await upsertSectionInPostgres(client, checklistId, group, groupPrefix);
+				materializedSectionIds.push(sectionId);
 				await replaceSectionProfilesInPostgres(client, sectionId, stringArray(group.profiles));
 				const groupId = await upsertQuestionGroupInPostgres(client, sectionId, group, groupPrefix);
+				materializedGroupIds.push(groupId);
 
 				const questions = orderImportQuestions(group.questions);
 				for (const [index, question] of questions.entries()) {
@@ -439,10 +444,18 @@ async function syncImporterSnapshotToRuntimePostgres(payload: ImportPayload) {
 						index + 1,
 						forceSequentialQuestionPrefixes
 					);
+					materializedQuestionIds.push(questionId);
 					await replaceQuestionProfilesInPostgres(client, questionId, stringArray(question.profiles));
 					indexQuestion(questionLookup, question.node_id, questionId);
 				}
 			}
+
+			await reconcileRuntimeChecklistSnapshot(client, {
+				checklistId,
+				sectionIds: materializedSectionIds,
+				groupIds: materializedGroupIds,
+				questionIds: materializedQuestionIds
+			});
 		}
 
 		for (const fact of payload.factImport.records) {
@@ -458,6 +471,40 @@ async function syncImporterSnapshotToRuntimePostgres(payload: ImportPayload) {
 	} finally {
 		client.release();
 	}
+}
+
+async function reconcileRuntimeChecklistSnapshot(
+	client: PostgresExecutor,
+	input: {
+		checklistId: number;
+		sectionIds: number[];
+		groupIds: number[];
+		questionIds: number[];
+	}
+) {
+	await client.query(
+		`delete from app_questions
+		where group_id in (
+			select groups.id
+			from app_question_groups groups
+			join app_sections sections on sections.id = groups.section_id
+			where sections.checklist_id = $1
+		)
+		and not (id = any($2::int[]))`,
+		[input.checklistId, input.questionIds]
+	);
+	await client.query(
+		`delete from app_question_groups
+		where section_id in (select id from app_sections where checklist_id = $1)
+		and not (id = any($2::int[]))`,
+		[input.checklistId, input.groupIds]
+	);
+	await client.query(
+		`delete from app_sections
+		where checklist_id = $1
+		and not (id = any($2::int[]))`,
+		[input.checklistId, input.sectionIds]
+	);
 }
 
 async function rebuildQuestionFactLinksInRuntimePostgres(
@@ -1181,7 +1228,15 @@ function inferGroupPrefix(checklist: ChecklistRecord, group: ImportGroup, groupO
 
 function shouldForceSequentialQuestionPrefixes(group: ImportGroup, groupPrefix: string) {
 	const groupNodePrefix = legacyPrefix(stringValue(group.node_id));
-	return groupNodePrefix !== groupPrefix;
+	if (groupNodePrefix !== groupPrefix) {
+		return true;
+	}
+
+	const inferredPrefixes = orderImportQuestions(group.questions).map((question, index) =>
+		legacyQuestionPrefix(stringValue(question.node_id), groupPrefix, index + 1)
+	);
+
+	return new Set(inferredPrefixes).size !== inferredPrefixes.length;
 }
 
 function inferChecklistPrefix(checklist: ChecklistRecord) {

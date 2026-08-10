@@ -86,10 +86,14 @@
 		const routeData = page.data as {
 			item?: { title?: string } | null;
 			importedContent?: { title?: string } | null;
+			topic?: { title?: string } | null;
+			calculator?: { title?: string } | null;
 		};
 		const explicitTitle =
 			routeData?.item?.title ??
 			routeData?.importedContent?.title ??
+			routeData?.topic?.title ??
+			routeData?.calculator?.title ??
 			data.item?.title ??
 			data.importedContent?.title;
 		if (explicitTitle?.trim()) {
@@ -100,6 +104,10 @@
 		const lastSegment = segments.at(-1);
 		if (!lastSegment) {
 			return 'Hem';
+		}
+
+		if (page.url.pathname === '/berakningar') {
+			return 'Beräkningar';
 		}
 
 		return lastSegment

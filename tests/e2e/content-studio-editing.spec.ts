@@ -168,7 +168,7 @@ async function restoreFactRowSnapshot(
 	}
 }
 
-async function dragToLowerHalf(source: Locator, target: Locator) {
+async function dragAtRatio(source: Locator, target: Locator, targetRatio: number) {
 	const sourceHandle = await source.elementHandle();
 	const targetHandle = await target.elementHandle();
 
@@ -177,10 +177,10 @@ async function dragToLowerHalf(source: Locator, target: Locator) {
 	}
 
 	await source.page().evaluate(
-		([sourceElement, targetElement]) => {
+		({ sourceElement, targetElement, ratio }) => {
 			const dataTransfer = new DataTransfer();
 			const bounds = targetElement.getBoundingClientRect();
-			const clientY = bounds.top + bounds.height * 0.82;
+			const clientY = bounds.top + bounds.height * ratio;
 
 			sourceElement.dispatchEvent(
 				new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer })
@@ -195,11 +195,19 @@ async function dragToLowerHalf(source: Locator, target: Locator) {
 				new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer })
 			);
 		},
-		[sourceHandle, targetHandle]
+		{ sourceElement: sourceHandle, targetElement: targetHandle, ratio: targetRatio }
 	);
 
 	await sourceHandle.dispose();
 	await targetHandle.dispose();
+}
+
+async function dragToLowerHalf(source: Locator, target: Locator) {
+	await dragAtRatio(source, target, 0.82);
+}
+
+async function dragToUpperHalf(source: Locator, target: Locator) {
+	await dragAtRatio(source, target, 0.18);
 }
 
 test('admin can save and publish a fact directly in content studio', async ({ page }) => {
@@ -244,13 +252,22 @@ test('admin can add a checklist question from the tree row create menu', async (
 	const questionCount = Number(await page.locator('.overview-card strong').nth(1).innerText());
 	await page.locator('.toggle-button').first().click();
 	await page.locator('.question-list .question-button').nth(1).click();
-	await page.getByRole('button', { name: /Skapa nära frågan/i }).nth(0).click();
-	await page.getByRole('button', { name: 'Ny fråga efter' }).click();
+	let created = false;
+	try {
+		await page.getByRole('button', { name: /Skapa nära frågan/i }).nth(0).click();
+		await page.getByRole('button', { name: 'Ny fråga efter' }).click();
+		created = true;
 
-	await expect(page.getByText('Frågan skapades.')).toBeVisible({ timeout: 30000 });
-	await expect(page.locator('.overview-card strong').nth(1)).toHaveText(String(questionCount + 1));
-	await expect(page.locator('.question-list').first()).toContainText('Ny fråga');
-	await expect(page.getByLabel('Frågetext')).toHaveValue('Ny fråga');
+		await expect(page.getByText('Frågan skapades.')).toBeVisible({ timeout: 30000 });
+		await expect(page.locator('.overview-card strong').nth(1)).toHaveText(String(questionCount + 1));
+		await expect(page.locator('.question-list').first()).toContainText('Ny fråga');
+		await expect(page.getByLabel('Frågetext')).toHaveValue('Ny fråga');
+	} finally {
+		if (created) {
+			await page.getByRole('button', { name: /Ta bort fråga/ }).click();
+			await expect(page.getByText('Frågan togs bort.')).toBeVisible({ timeout: 30000 });
+		}
+	}
 });
 
 test('admin can reorder checklist groups with drag and drop', async ({ page }) => {
@@ -262,42 +279,76 @@ test('admin can reorder checklist groups with drag and drop', async ({ page }) =
 	const firstTitle = ((await firstGroup.locator('.group-button span').first().textContent()) ?? '').trim();
 	const secondTitle = ((await secondGroup.locator('.group-button span').first().textContent()) ?? '').trim();
 
-	const reorderSaved = page.waitForResponse(
-		(response) => response.url().includes('?/reorderGroups') && response.request().method() === 'POST'
-	);
-	await dragToLowerHalf(firstGroup.getByRole('button', { name: /Dra för att flytta gruppen/ }), secondGroup);
+	let reordered = false;
+	try {
+		const reorderSaved = page.waitForResponse(
+			(response) => response.url().includes('?/reorderGroups') && response.request().method() === 'POST'
+		);
+		await dragToLowerHalf(firstGroup.getByRole('button', { name: /Dra för att flytta gruppen/ }), secondGroup);
+		reordered = true;
 
-	await expect(page.locator('[data-testid^="group-row-"]').nth(0).locator('.group-button span').first()).toHaveText(secondTitle);
-	await expect(page.locator('[data-testid^="group-row-"]').nth(1).locator('.group-button span').first()).toHaveText(firstTitle);
-	await reorderSaved;
-	await page.reload();
-	await expect(page.locator('[data-testid^="group-row-"]').nth(0).locator('.group-button span').first()).toHaveText(secondTitle);
-	await expect(page.locator('[data-testid^="group-row-"]').nth(1).locator('.group-button span').first()).toHaveText(firstTitle);
+		await expect(page.locator('[data-testid^="group-row-"]').nth(0).locator('.group-button span').first()).toHaveText(secondTitle);
+		await expect(page.locator('[data-testid^="group-row-"]').nth(1).locator('.group-button span').first()).toHaveText(firstTitle);
+		await reorderSaved;
+		await page.reload();
+		await expect(page.locator('[data-testid^="group-row-"]').nth(0).locator('.group-button span').first()).toHaveText(secondTitle);
+		await expect(page.locator('[data-testid^="group-row-"]').nth(1).locator('.group-button span').first()).toHaveText(firstTitle);
+	} finally {
+		if (reordered) {
+			const originalFirst = page.locator('[data-testid^="group-row-"]').filter({ hasText: firstTitle }).first();
+			const originalSecond = page.locator('[data-testid^="group-row-"]').filter({ hasText: secondTitle }).first();
+			await dragToUpperHalf(
+				originalFirst.getByRole('button', { name: /Dra för att flytta gruppen/ }),
+				originalSecond
+			);
+		}
+	}
 });
 
 test('admin can reorder checklist questions with drag and drop', async ({ page }) => {
 	await loginAsDemo(page, 'admin');
 
 	await page.goto('/admin/content-studio/checklists');
-	await page.locator('[data-testid^="group-row-"]').first().getByRole('button', { name: /Skapa nära/ }).click();
-	await page.getByRole('button', { name: 'Ny fråga i grupp' }).click();
-	await expect(page.getByText('Frågan skapades.')).toBeVisible();
-	const firstQuestion = page.locator('[data-testid^="question-row-0-"]').nth(0);
-	const secondQuestion = page.locator('[data-testid^="question-row-0-"]').nth(1);
-	const firstText = ((await firstQuestion.locator('.question-button span').first().textContent()) ?? '').trim();
-	const secondText = ((await secondQuestion.locator('.question-button span').first().textContent()) ?? '').trim();
+	let created = false;
+	let reordered = false;
+	let firstText = '';
+	let secondText = '';
+	try {
+		await page.locator('[data-testid^="group-row-"]').first().getByRole('button', { name: /Skapa nära/ }).click();
+		await page.getByRole('button', { name: 'Ny fråga i grupp' }).click();
+		created = true;
+		await expect(page.getByText('Frågan skapades.')).toBeVisible();
+		const firstQuestion = page.locator('[data-testid^="question-row-0-"]').nth(0);
+		const secondQuestion = page.locator('[data-testid^="question-row-0-"]').nth(1);
+		firstText = ((await firstQuestion.locator('.question-button span').first().textContent()) ?? '').trim();
+		secondText = ((await secondQuestion.locator('.question-button span').first().textContent()) ?? '').trim();
 
-	const reorderSaved = page.waitForResponse(
-		(response) => response.url().includes('?/reorderQuestions') && response.request().method() === 'POST'
-	);
-	await dragToLowerHalf(firstQuestion.getByRole('button', { name: /Dra för att flytta frågan/ }), secondQuestion);
+		const reorderSaved = page.waitForResponse(
+			(response) => response.url().includes('?/reorderQuestions') && response.request().method() === 'POST'
+		);
+		await dragToLowerHalf(firstQuestion.getByRole('button', { name: /Dra för att flytta frågan/ }), secondQuestion);
+		reordered = true;
 
-	await expect(page.locator('[data-testid^="question-row-0-"]').nth(0).locator('.question-button span').first()).toHaveText(secondText);
-	await expect(page.locator('[data-testid^="question-row-0-"]').nth(1).locator('.question-button span').first()).toHaveText(firstText);
-	await reorderSaved;
-	await page.reload();
-	await expect(page.locator('[data-testid^="question-row-0-"]').nth(0).locator('.question-button span').first()).toHaveText(secondText);
-	await expect(page.locator('[data-testid^="question-row-0-"]').nth(1).locator('.question-button span').first()).toHaveText(firstText);
+		await expect(page.locator('[data-testid^="question-row-0-"]').nth(0).locator('.question-button span').first()).toHaveText(secondText);
+		await expect(page.locator('[data-testid^="question-row-0-"]').nth(1).locator('.question-button span').first()).toHaveText(firstText);
+		await reorderSaved;
+		await page.reload();
+		await expect(page.locator('[data-testid^="question-row-0-"]').nth(0).locator('.question-button span').first()).toHaveText(secondText);
+		await expect(page.locator('[data-testid^="question-row-0-"]').nth(1).locator('.question-button span').first()).toHaveText(firstText);
+	} finally {
+		if (reordered) {
+			const originalFirst = page.locator('[data-testid^="question-row-0-"]').filter({ hasText: firstText }).first();
+			const originalSecond = page.locator('[data-testid^="question-row-0-"]').filter({ hasText: secondText }).first();
+			await dragToUpperHalf(
+				originalFirst.getByRole('button', { name: /Dra för att flytta frågan/ }),
+				originalSecond
+			);
+		}
+		if (created) {
+			await page.getByRole('button', { name: /Ta bort fråga/ }).click();
+			await expect(page.getByText('Frågan togs bort.')).toBeVisible({ timeout: 30000 });
+		}
+	}
 });
 
 test('admin can edit a checklist question and keep the selection', async ({ page }) => {
@@ -308,14 +359,23 @@ test('admin can edit a checklist question and keep the selection', async ({ page
 	await page.locator('.question-list .question-button').nth(0).click();
 	await expect(page.getByRole('button', { name: /Nollställ fråga/ })).toBeVisible();
 	await expect(page.getByRole('button', { name: /Ta bort fråga/ })).toBeVisible();
-	await page.getByLabel('Frågetext').fill('Updated from browser test');
-	await page.getByRole('checkbox', { name: 'Rekommenderad' }).uncheck();
-	await page.getByRole('button', { name: 'Spara fråga' }).click();
+	const originalText = await page.getByLabel('Frågetext').inputValue();
+	const originallyRecommended = await page.getByRole('checkbox', { name: 'Rekommenderad' }).isChecked();
+	try {
+		await page.getByLabel('Frågetext').fill('Updated from browser test');
+		await page.getByRole('checkbox', { name: 'Rekommenderad' }).uncheck();
+		await page.getByRole('button', { name: 'Spara fråga' }).click();
 
-	await expect(page.getByText('Frågan sparades.')).toBeVisible({ timeout: 30000 });
-	await expect(page.getByLabel('Frågetext')).toHaveValue('Updated from browser test');
-	await expect(page.locator('.question-list').first()).toContainText('Updated from browser test');
-	await expect(page.getByRole('checkbox', { name: 'Rekommenderad' })).not.toBeChecked();
+		await expect(page.getByText('Frågan sparades.')).toBeVisible({ timeout: 30000 });
+		await expect(page.getByLabel('Frågetext')).toHaveValue('Updated from browser test');
+		await expect(page.locator('.question-list').first()).toContainText('Updated from browser test');
+		await expect(page.getByRole('checkbox', { name: 'Rekommenderad' })).not.toBeChecked();
+	} finally {
+		await page.getByLabel('Frågetext').fill(originalText);
+		await page.getByRole('checkbox', { name: 'Rekommenderad' }).setChecked(originallyRecommended);
+		await page.getByRole('button', { name: 'Spara fråga' }).click();
+		await expect(page.getByText('Frågan sparades.')).toBeVisible({ timeout: 30000 });
+	}
 });
 
 test('admin can open the fact linking modal from checklist workspace', async ({ page }) => {

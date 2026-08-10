@@ -12,6 +12,7 @@
 		comment: string;
 		dueDate: string;
 		saving: boolean;
+		error: string;
 	};
 
 	type ExportKind = 'plan' | 'user-full' | 'complete';
@@ -29,7 +30,8 @@
 						responseValue: question.answer.responseValue,
 						comment: question.answer.comment,
 						dueDate: question.answer.dueDate,
-						saving: false
+						saving: false,
+						error: ''
 					}
 				])
 			)
@@ -44,7 +46,8 @@
 		return {
 			open: false,
 			title: '',
-			bodyHtml: ''
+			bodyHtml: '',
+			message: ''
 		};
 	}
 
@@ -54,6 +57,7 @@
 	let isExporting = $state(false);
 	let exportKind = $state<ExportKind>('plan');
 	let exportError = $state<string | null>(null);
+	let factRequestId = 0;
 
 	$effect(() => {
 		questionState = createInitialQuestionState();
@@ -105,9 +109,10 @@
 
 	async function save(questionId: number) {
 		questionState[questionId].saving = true;
+		questionState[questionId].error = '';
 
 		try {
-			await fetch(`/api/answers/${questionId}`, {
+			const response = await fetch(`/api/answers/${questionId}`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
@@ -116,27 +121,52 @@
 					dueDate: questionState[questionId].dueDate
 				})
 			});
+
+			if (!response.ok) {
+				throw new Error('Answer save failed');
+			}
+		} catch {
+			questionState[questionId].error = 'Svaret kunde inte sparas. Försök igen.';
 		} finally {
 			questionState[questionId].saving = false;
 		}
 	}
 
 	async function openFact(nodeId: string) {
-		const response = await fetch(`/api/facts/${nodeId}`);
-
-		if (!response.ok) {
-			return;
-		}
-
-		const fact = await response.json();
+		const requestId = ++factRequestId;
 		factModal = {
 			open: true,
-			title: fact.title,
-			bodyHtml: fact.bodyHtml
+			title: 'Fakta',
+			bodyHtml: '',
+			message: 'Hämtar faktatext…'
 		};
+
+		try {
+			const response = await fetch(`/api/facts/${nodeId}`);
+			if (!response.ok) {
+				throw new Error('Fact load failed');
+			}
+
+			const fact = await response.json();
+			if (requestId !== factRequestId) {
+				return;
+			}
+
+			factModal = {
+				open: true,
+				title: fact.title,
+				bodyHtml: fact.bodyHtml,
+				message: ''
+			};
+		} catch {
+			if (requestId === factRequestId) {
+				factModal.message = 'Faktatexten kunde inte hämtas. Försök igen.';
+			}
+		}
 	}
 
 	function closeFact() {
+		factRequestId += 1;
 		factModal.open = false;
 	}
 
@@ -455,6 +485,7 @@
 											bind:group={questionState[question.id].responseValue}
 											onchange={() => save(question.id)}
 										/>
+										<span class="answer-label">{answerLabel(value as 'yes' | 'no' | 'na')}</span>
 									</label>
 								{/each}
 
@@ -471,6 +502,9 @@
 									{/if}
 								</div>
 							</div>
+							{#if questionState[question.id].error}
+								<p class="save-error" role="alert">{questionState[question.id].error}</p>
+							{/if}
 
 							{#if shouldShowDetails(question)}
 								<div class="comment-panel">
@@ -505,6 +539,7 @@
 		open={factModal.open}
 		title={factModal.title}
 		bodyHtml={factModal.bodyHtml}
+		message={factModal.message}
 		onClose={closeFact}
 	/>
 </main>
@@ -982,6 +1017,17 @@
 		accent-color: var(--color-leaf);
 	}
 
+	.answer-label {
+		display: none;
+	}
+
+	.save-error {
+		margin: 10px 0 0 86px;
+		color: #9a3429;
+		font-size: 0.9rem;
+		font-weight: 700;
+	}
+
 	.info-button {
 		font-size: 1.02rem;
 	}
@@ -1108,6 +1154,24 @@
 		.question-info {
 			place-items: start;
 			padding-top: 0;
+		}
+
+		.answer-cell {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			min-height: 34px;
+		}
+
+		.answer-label {
+			display: inline;
+			color: var(--color-bark);
+			font-size: 0.95rem;
+			font-weight: 700;
+		}
+
+		.save-error {
+			margin-left: 0;
 		}
 
 		.comment-panel {

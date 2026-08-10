@@ -189,6 +189,51 @@ describe('syncImporterSnapshot', () => {
 		expect(questionRows.map((question) => question.prefix)).toEqual(['V20-1', 'V20-2', 'V20-3']);
 	});
 
+	it('keeps visible question prefixes unique when an editorial node collides with a legacy prefix', async () => {
+		const db = createTestDb();
+
+		syncImporterSnapshot(db, {
+			snapshotKey: 'snapshot-prefix-collision',
+			checklistImport: {
+				records: [
+					{
+						checklist_id: 'checklist-g',
+						qa_type: 'G',
+						title: 'Allmanna gardkrav',
+						groups: [
+							{
+								node_id: 'node-id-G1-2015-04-20-0200',
+								title: 'Tillstand',
+								sort_order: 1,
+								questions: [
+									{
+										node_id: 'node-id-G1-1-2015-04-20-0200',
+										question_text: 'Question 1',
+										sort_order: 1
+									},
+									{
+										node_id: 'node-id-G-622259-2026-02-16T104322684957-0100',
+										question_text: 'Editorial question',
+										sort_order: 2
+									},
+									{
+										node_id: 'node-id-G1-2-2015-04-20-0200',
+										question_text: 'Legacy question 2',
+										sort_order: 3
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			factImport: { records: [] }
+		});
+
+		const questionRows = await db.query.appQuestions.findMany();
+		expect(questionRows.map((question) => question.prefix)).toEqual(['G1-1', 'G1-2', 'G1-3']);
+	});
+
 	it('infers malformed group prefixes from child question numbering and repairs question numbering from that group', async () => {
 		const db = createTestDb();
 
