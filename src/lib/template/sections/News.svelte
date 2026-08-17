@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '../primitives/Icon.svelte';
   import type { NewsListItem } from '../types';
+  import { reveal } from '$lib/actions/reveal';
 
   let {
     eyebrow = 'Nyheter',
@@ -46,7 +47,7 @@
 
 <section id="nyheter" class="bg-cream-2/40 py-24">
   <div class="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-12">
-    <div class="lg:col-span-4">
+    <div use:reveal class="lg:col-span-4">
       <span class="text-xs font-medium tracking-widest text-leaf uppercase">{eyebrow}</span>
       <h2
         class="font-display mt-3 text-4xl leading-tight font-semibold tracking-tight text-bark md:text-5xl"
@@ -55,14 +56,14 @@
       </h2>
       <a
         href={linkHref}
-        class="mt-6 inline-flex items-center gap-2 text-sm font-medium text-leaf hover:text-leaf-2"
+        class="mt-6 inline-flex items-center gap-2 text-sm font-medium text-leaf transition hover:gap-3 hover:text-leaf-2"
       >
         {linkLabel}<Icon name="arrow-right" class="lucide lucide-arrow-right h-4 w-4" />
       </a>
     </div>
     <ul class="divide-y divide-line lg:col-span-8">
-      {#each items as item (item.title)}
-        <li>
+      {#each items as item, i (item.title)}
+        <li use:reveal={{ delay: i * 70, distance: 10 }}>
           <a
             href={item.href}
             class="group flex items-center justify-between gap-6 py-6 transition hover:text-leaf"

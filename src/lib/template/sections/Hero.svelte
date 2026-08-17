@@ -5,6 +5,7 @@
   import Button from '../primitives/Button.svelte';
   import Card from '../primitives/Card.svelte';
   import type { TemplateLink } from '../types';
+  import { reveal } from '$lib/actions/reveal';
 
   let {
     eyebrow = 'Ett verktyg från LRF',
@@ -48,32 +49,52 @@
     class="mx-auto grid max-w-7xl gap-12 px-6 pt-16 pb-24 md:pt-24 md:pb-28 lg:grid-cols-12 lg:gap-16"
   >
     <div class="lg:col-span-7">
-      <Badge label={eyebrow}>
-        {#snippet icon()}
-          <Icon name="leaf" class="h-3.5 w-3.5" />
-        {/snippet}
-      </Badge>
+      <div use:reveal={{ delay: 0 }}>
+        <Badge label={eyebrow}>
+          {#snippet icon()}
+            <Icon name="leaf" class="h-3.5 w-3.5" />
+          {/snippet}
+        </Badge>
+      </div>
       <h1
+        use:reveal={{ delay: 90 }}
         class="font-display mt-6 text-5xl leading-[1.05] font-semibold tracking-tight text-bark md:text-6xl lg:text-7xl"
       >
         {title} <span class="text-leaf">{highlight}</span>.
       </h1>
-      <p class="mt-6 max-w-2xl text-lg text-ink/75 md:text-xl">{subtitle}</p>
-      <div class="mt-9 flex flex-wrap items-center gap-3">
-        <Button label={primaryCta.label} href={primaryCta.href} variant="primary">
+      <p use:reveal={{ delay: 180 }} class="mt-6 max-w-2xl text-lg text-ink/75 md:text-xl">
+        {subtitle}
+      </p>
+      <div use:reveal={{ delay: 270 }} class="mt-9 flex flex-wrap items-center gap-3">
+        <Button
+          label={primaryCta.label}
+          href={primaryCta.href}
+          variant="primary"
+          class="group transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98]"
+        >
           {#snippet icon()}
-            <Icon name="arrow-right" class="h-4 w-4" />
+            <Icon
+              name="arrow-right"
+              class="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5"
+            />
           {/snippet}
         </Button>
-        <Button label={secondaryCta.label} href={secondaryCta.href} variant="secondary">
+        <Button
+          label={secondaryCta.label}
+          href={secondaryCta.href}
+          variant="secondary"
+          class="transition-transform duration-200 hover:scale-[1.03] active:scale-[0.98]"
+        >
           {#snippet icon()}
             <Icon name="download" class="h-4 w-4" />
           {/snippet}
         </Button>
       </div>
     </div>
-    <div class="relative lg:col-span-5">
-      <div class="absolute -top-6 -right-6 h-40 w-40 rounded-full bg-sage/30 blur-2xl"></div>
+    <div use:reveal={{ delay: 150, distance: 26 }} class="relative lg:col-span-5">
+      <div
+        class="blob-drift absolute -top-6 -right-6 h-40 w-40 rounded-full bg-sage/30 blur-2xl"
+      ></div>
       <Card class="relative backdrop-blur">
         <div class="flex items-center justify-between text-xs text-mute">
           <span class="inline-flex items-center gap-1.5">

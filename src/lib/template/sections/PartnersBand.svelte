@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { reveal } from '$lib/actions/reveal';
+
   let { label = 'I samarbete med' }: { label?: string } = $props();
 </script>
 
 <section class="border-y border-line/70 bg-cream-2/60">
   <div
+    use:reveal={{ distance: 10 }}
     class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-6 py-5 text-sm text-mute"
   >
     <span class="font-medium tracking-wide text-leaf-2 uppercase">{label}</span>

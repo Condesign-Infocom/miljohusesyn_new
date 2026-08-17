@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '../primitives/Icon.svelte';
   import type { FeatureGridItem } from '../types';
+  import { reveal } from '$lib/actions/reveal';
 
   let {
     eyebrow = 'Om verktyget',
@@ -31,16 +32,19 @@
 <section id="viktigt" class="mx-auto max-w-7xl px-6 py-24">
   <div class="grid gap-12 lg:grid-cols-12">
     <div class="lg:col-span-5">
-      <span class="text-xs font-medium tracking-widest text-leaf uppercase">{eyebrow}</span>
+      <span use:reveal class="text-xs font-medium tracking-widest text-leaf uppercase"
+        >{eyebrow}</span
+      >
       <h2
+        use:reveal={{ delay: 70 }}
         class="font-display mt-3 text-4xl leading-tight font-semibold tracking-tight text-bark md:text-5xl"
       >
         {heading}
       </h2>
       <h3 class="sr-only">{title}</h3>
       <ul class="mt-8 space-y-3 text-sm">
-        {#each items as item (item.label)}
-          <li class="flex items-start gap-3">
+        {#each items as item, i (item.label)}
+          <li use:reveal={{ delay: 140 + i * 60, distance: 10 }} class="flex items-start gap-3">
             <span
               class="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sage-2 text-leaf-2"
             >
@@ -52,10 +56,10 @@
       </ul>
     </div>
     <div class="space-y-5 text-lg text-ink/80 lg:col-span-7">
-      {#each body as paragraph (paragraph)}
-        <p>{paragraph}</p>
+      {#each body as paragraph, i (paragraph)}
+        <p use:reveal={{ delay: i * 90 }}>{paragraph}</p>
       {/each}
-      <p class="text-sm text-mute">{disclaimer}</p>
+      <p use:reveal={{ delay: body.length * 90 }} class="text-sm text-mute">{disclaimer}</p>
     </div>
   </div>
 </section>

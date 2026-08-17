@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '../primitives/Icon.svelte';
   import type { ContactCard } from '../types';
+  import { reveal } from '$lib/actions/reveal';
 
   let {
     eyebrow = 'Material',
@@ -30,6 +31,7 @@
 
 <section id="kontakt" class="mx-auto max-w-7xl px-6 py-24">
   <div
+    use:reveal
     class="grid gap-10 overflow-hidden rounded-3xl border border-line bg-cream p-10 md:grid-cols-2 md:p-14"
   >
     <div>
@@ -41,21 +43,24 @@
       <div class="mt-7 flex flex-wrap gap-3">
         <a
           href={downloadHref}
-          class="inline-flex items-center gap-2 rounded-full bg-leaf px-6 py-3.5 text-sm font-medium text-cream transition hover:bg-leaf-2"
+          class="inline-flex items-center gap-2 rounded-full bg-leaf px-6 py-3.5 text-sm font-medium text-cream transition duration-200 hover:scale-[1.03] hover:bg-leaf-2 active:scale-[0.98]"
         >
           <Icon name="download" class="lucide lucide-download h-4 w-4" />{downloadLabel}
         </a>
         <a
           href={contactHref}
-          class="inline-flex items-center gap-2 rounded-full border border-line px-6 py-3.5 text-sm font-medium text-ink transition hover:border-leaf hover:text-leaf"
+          class="inline-flex items-center gap-2 rounded-full border border-line px-6 py-3.5 text-sm font-medium text-ink transition duration-200 hover:scale-[1.03] hover:border-leaf hover:text-leaf active:scale-[0.98]"
         >
           <Icon name="mail" class="lucide lucide-mail h-4 w-4" />{contactLabel}
         </a>
       </div>
     </div>
     <div class="grid grid-cols-2 gap-3">
-      {#each cards as card (card.label)}
-        <div class="flex flex-col justify-between rounded-2xl border border-line bg-cream-2/60 p-5">
+      {#each cards as card, i (card.label)}
+        <div
+          use:reveal={{ delay: i * 80, distance: 12 }}
+          class="flex flex-col justify-between rounded-2xl border border-line bg-cream-2/60 p-5 transition duration-200 hover:-translate-y-0.5 hover:border-leaf/40"
+        >
           <Icon name={card.icon} class={`lucide lucide-${card.icon} h-6 w-6 text-leaf`} />
           <span class="font-display mt-10 text-lg font-semibold text-bark">{card.label}</span>
         </div>
