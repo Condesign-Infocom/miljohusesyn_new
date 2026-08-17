@@ -13,15 +13,19 @@ export type DomainStoreConfig = {
 export function resolveDomainStoreConfig(env: NodeJS.ProcessEnv = process.env): DomainStoreConfig {
 	const effectiveEnv = resolveDomainStoreEnv(env);
 	const rawEngine = effectiveEnv.MHS_DOMAIN_STORE_ENGINE?.trim().toLowerCase();
+	const postgresDsn =
+		effectiveEnv.MHS_DOMAIN_STORE_POSTGRES_DSN?.trim() ||
+		effectiveEnv.APP_DB_POSTGRES_DSN?.trim() ||
+		null;
 	const engine =
 		rawEngine === 'sqlite' ? 'sqlite'
-		: rawEngine === 'postgres' || Boolean(effectiveEnv.MHS_DOMAIN_STORE_POSTGRES_DSN?.trim()) ? 'postgres'
+		: rawEngine === 'postgres' || Boolean(postgresDsn) ? 'postgres'
 		: 'sqlite';
 
 	return {
 		engine,
 		sqlitePath: effectiveEnv.MHS_DOMAIN_STORE_SQLITE_PATH?.trim() || defaultSqlitePath,
-		postgresDsn: effectiveEnv.MHS_DOMAIN_STORE_POSTGRES_DSN?.trim() || null
+		postgresDsn
 	};
 }
 
